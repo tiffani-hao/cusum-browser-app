@@ -1,0 +1,95 @@
+{
+  "fixture_name": "zero-standard-deviation",
+  "scenario": "Constant counts use replacement baseline standard deviation of 1.",
+  "analysis_options": {
+    "analysis_interval": "monthly",
+    "smoothing_window": 3,
+    "baseline_window": 3,
+    "k": 0.1,
+    "threshold": 3.0,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 4
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 4
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 4
+    },
+    {
+      "area": "North District",
+      "date": "2024-04-01",
+      "count": 4
+    }
+  ],
+  "input_row_count": 4,
+  "processed_row_count": 4,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 4,
+      "smoothed_count": 4,
+      "baseline_mean": 4,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 4,
+      "smoothed_count": 4,
+      "baseline_mean": 4,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 4,
+      "smoothed_count": 4,
+      "baseline_mean": 4,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-04-01",
+      "count": 4,
+      "smoothed_count": 4,
+      "baseline_mean": 4,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    }
+  ],
+  "summary": {
+    "areas_included": 1,
+    "risk_groups_included": [],
+    "alerts_detected": 0
+  }
+}

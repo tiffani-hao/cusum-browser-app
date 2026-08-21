@@ -1,0 +1,61 @@
+{
+  "fixture_name": "greater-than-threshold-alert",
+  "scenario": "CUSUM greater than threshold is an alert.",
+  "analysis_options": {
+    "analysis_interval": "daily",
+    "smoothing_window": 1,
+    "baseline_window": 2,
+    "k": 0.0,
+    "threshold": 0.5,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-02",
+      "count": 10
+    }
+  ],
+  "input_row_count": 2,
+  "processed_row_count": 2,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 0.5,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-02",
+      "count": 10,
+      "smoothed_count": 10,
+      "baseline_mean": 5.5,
+      "baseline_std": 6.363961030678928,
+      "normalized_count": 0.7071067811865476,
+      "cusum": 0.7071067811865476,
+      "threshold": 0.5,
+      "is_alert": true
+    }
+  ],
+  "summary": {
+    "areas_included": 1,
+    "risk_groups_included": [],
+    "alerts_detected": 1
+  }
+}

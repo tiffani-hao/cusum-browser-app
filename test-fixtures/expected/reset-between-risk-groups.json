@@ -1,0 +1,145 @@
+{
+  "fixture_name": "reset-between-risk-groups",
+  "scenario": "CUSUM state does not carry between risk groups.",
+  "analysis_options": {
+    "analysis_interval": "monthly",
+    "smoothing_window": 1,
+    "baseline_window": 2,
+    "k": 0.0,
+    "threshold": 0.5,
+    "group_by_risk_group": true
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area",
+    "risk_group"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1,
+      "risk_group": "Group A"
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 8,
+      "risk_group": "Group A"
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 5,
+      "risk_group": "Group B"
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 5,
+      "risk_group": "Group B"
+    },
+    {
+      "area": "South District",
+      "date": "2024-01-01",
+      "count": 2,
+      "risk_group": "Group A"
+    },
+    {
+      "area": "South District",
+      "date": "2024-02-01",
+      "count": 7,
+      "risk_group": "Group A"
+    }
+  ],
+  "input_row_count": 6,
+  "processed_row_count": 6,
+  "expected_records": [
+    {
+      "area": "North District",
+      "risk_group": "Group A",
+      "date": "2024-01-01",
+      "count": 1,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 0.5,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "risk_group": "Group A",
+      "date": "2024-02-01",
+      "count": 8,
+      "smoothed_count": 8,
+      "baseline_mean": 4.5,
+      "baseline_std": 4.949747468305833,
+      "normalized_count": 0.7071067811865476,
+      "cusum": 0.7071067811865476,
+      "threshold": 0.5,
+      "is_alert": true
+    },
+    {
+      "area": "North District",
+      "risk_group": "Group B",
+      "date": "2024-01-01",
+      "count": 5,
+      "smoothed_count": 5,
+      "baseline_mean": 5,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 0.5,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "risk_group": "Group B",
+      "date": "2024-02-01",
+      "count": 5,
+      "smoothed_count": 5,
+      "baseline_mean": 5,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 0.5,
+      "is_alert": false
+    },
+    {
+      "area": "South District",
+      "risk_group": "Group A",
+      "date": "2024-01-01",
+      "count": 2,
+      "smoothed_count": 2,
+      "baseline_mean": 2,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 0.5,
+      "is_alert": false
+    },
+    {
+      "area": "South District",
+      "risk_group": "Group A",
+      "date": "2024-02-01",
+      "count": 7,
+      "smoothed_count": 7,
+      "baseline_mean": 4.5,
+      "baseline_std": 3.5355339059327378,
+      "normalized_count": 0.7071067811865475,
+      "cusum": 0.7071067811865475,
+      "threshold": 0.5,
+      "is_alert": true
+    }
+  ],
+  "summary": {
+    "areas_included": 2,
+    "risk_groups_included": [
+      "Group A",
+      "Group B"
+    ],
+    "alerts_detected": 2
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "fixture_name": "early-baseline-window",
+  "scenario": "The baseline window uses available early observations.",
+  "analysis_options": {
+    "analysis_interval": "monthly",
+    "smoothing_window": 3,
+    "baseline_window": 36,
+    "k": 0.1,
+    "threshold": 3.0,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 2
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 9
+    }
+  ],
+  "input_row_count": 3,
+  "processed_row_count": 3,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 2,
+      "smoothed_count": 1.5,
+      "baseline_mean": 1.5,
+      "baseline_std": 0.7071067811865476,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 9,
+      "smoothed_count": 4,
+      "baseline_mean": 4,
+      "baseline_std": 4.358898943540674,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    }
+  ],
+  "summary": {
+    "areas_included": 1,
+    "risk_groups_included": [],
+    "alerts_detected": 0
+  }
+}

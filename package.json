@@ -1,0 +1,27 @@
+{
+  "name": "cusum-browser-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "generate:risk-group-sample": "node scripts/generate-risk-group-example.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/papaparse": "^5.5.2",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "chart.js": "4.5.1",
+    "papaparse": "^5.5.4",
+    "read-excel-file": "^8.0.3"
+  }
+}

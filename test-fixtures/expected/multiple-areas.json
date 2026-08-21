@@ -1,0 +1,129 @@
+{
+  "fixture_name": "multiple-areas",
+  "scenario": "Two areas are analyzed as independent CUSUM series.",
+  "analysis_options": {
+    "analysis_interval": "monthly",
+    "smoothing_window": 3,
+    "baseline_window": 3,
+    "k": 0.1,
+    "threshold": 3.0,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 2
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 8
+    },
+    {
+      "area": "South District",
+      "date": "2024-01-01",
+      "count": 3
+    },
+    {
+      "area": "South District",
+      "date": "2024-02-01",
+      "count": 3
+    },
+    {
+      "area": "South District",
+      "date": "2024-03-01",
+      "count": 3
+    }
+  ],
+  "input_row_count": 6,
+  "processed_row_count": 6,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-02-01",
+      "count": 2,
+      "smoothed_count": 1.5,
+      "baseline_mean": 1.5,
+      "baseline_std": 0.7071067811865476,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-03-01",
+      "count": 8,
+      "smoothed_count": 3.6666666666666665,
+      "baseline_mean": 3.6666666666666665,
+      "baseline_std": 3.785938897200183,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "South District",
+      "date": "2024-01-01",
+      "count": 3,
+      "smoothed_count": 3,
+      "baseline_mean": 3,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "South District",
+      "date": "2024-02-01",
+      "count": 3,
+      "smoothed_count": 3,
+      "baseline_mean": 3,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "South District",
+      "date": "2024-03-01",
+      "count": 3,
+      "smoothed_count": 3,
+      "baseline_mean": 3,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    }
+  ],
+  "summary": {
+    "areas_included": 2,
+    "risk_groups_included": [],
+    "alerts_detected": 0
+  }
+}

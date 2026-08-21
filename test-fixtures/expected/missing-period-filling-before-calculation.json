@@ -1,0 +1,97 @@
+{
+  "fixture_name": "missing-period-filling-before-calculation",
+  "scenario": "Filled zero periods participate in smoothing and baseline calculations.",
+  "analysis_options": {
+    "analysis_interval": "daily",
+    "smoothing_window": 2,
+    "baseline_window": 3,
+    "k": 0.1,
+    "threshold": 3.0,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-05",
+      "count": 4
+    }
+  ],
+  "input_row_count": 2,
+  "processed_row_count": 5,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 1,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-02",
+      "count": 0,
+      "smoothed_count": 0.5,
+      "baseline_mean": 0.5,
+      "baseline_std": 0.7071067811865476,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-03",
+      "count": 0,
+      "smoothed_count": 0,
+      "baseline_mean": 0.3333333333333333,
+      "baseline_std": 0.5773502691896258,
+      "normalized_count": -0.5773502691896256,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-04",
+      "count": 0,
+      "smoothed_count": 0,
+      "baseline_mean": 0,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-05",
+      "count": 4,
+      "smoothed_count": 2,
+      "baseline_mean": 1.3333333333333333,
+      "baseline_std": 2.3094010767585034,
+      "normalized_count": 0.28867513459481287,
+      "cusum": 0.18867513459481286,
+      "threshold": 3,
+      "is_alert": false
+    }
+  ],
+  "summary": {
+    "areas_included": 1,
+    "risk_groups_included": [],
+    "alerts_detected": 0
+  }
+}

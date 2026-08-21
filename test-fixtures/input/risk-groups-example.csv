@@ -1,0 +1,13 @@
+area,date,count,risk_group
+Area A,2024-01-01,1,Group 1
+Area A,2024-02-01,1,Group 1
+Area A,2024-03-01,1,Group 1
+Area A,2024-04-01,8,Group 1
+Area A,2024-01-01,2,Group 2
+Area A,2024-02-01,2,Group 2
+Area A,2024-03-01,2,Group 2
+Area A,2024-04-01,9,Group 2
+Area B,2024-01-01,1,Group 1
+Area B,2024-02-01,1,Group 1
+Area B,2024-03-01,1,Group 1
+Area B,2024-04-01,7,Group 1

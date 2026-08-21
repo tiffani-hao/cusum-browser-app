@@ -1,0 +1,85 @@
+{
+  "fixture_name": "missing-weekly-periods",
+  "scenario": "Absent Monday-anchored weeks are inserted with count zero.",
+  "analysis_options": {
+    "analysis_interval": "weekly",
+    "smoothing_window": 3,
+    "baseline_window": 2,
+    "k": 0.1,
+    "threshold": 3.0,
+    "group_by_risk_group": false
+  },
+  "alert_comparison_rule": "cusum > threshold",
+  "independent_series_fields": [
+    "area"
+  ],
+  "raw_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-02",
+      "count": 2
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-23",
+      "count": 5
+    }
+  ],
+  "input_row_count": 2,
+  "processed_row_count": 4,
+  "expected_records": [
+    {
+      "area": "North District",
+      "date": "2024-01-01",
+      "count": 2,
+      "smoothed_count": 2,
+      "baseline_mean": 2,
+      "baseline_std": 1,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-08",
+      "count": 0,
+      "smoothed_count": 1,
+      "baseline_mean": 1,
+      "baseline_std": 1.4142135623730951,
+      "normalized_count": 0,
+      "cusum": 0,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-15",
+      "count": 0,
+      "smoothed_count": 0.6666666666666666,
+      "baseline_mean": 0,
+      "baseline_std": 1,
+      "normalized_count": 0.6666666666666666,
+      "cusum": 0.5666666666666667,
+      "threshold": 3,
+      "is_alert": false
+    },
+    {
+      "area": "North District",
+      "date": "2024-01-22",
+      "count": 5,
+      "smoothed_count": 1.6666666666666667,
+      "baseline_mean": 2.5,
+      "baseline_std": 3.5355339059327378,
+      "normalized_count": -0.2357022603955158,
+      "cusum": 0.23096440627115086,
+      "threshold": 3,
+      "is_alert": false
+    }
+  ],
+  "summary": {
+    "areas_included": 1,
+    "risk_groups_included": [],
+    "alerts_detected": 0
+  }
+}
