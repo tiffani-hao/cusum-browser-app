@@ -1,6 +1,14 @@
 import type { ProcessedCusumRecord } from "../core";
+import {
+  initialBaselinePeriodRecordKeys,
+  isInitialBaselinePeriodRecord,
+} from "./initial-baseline-period";
 import { independentSeries, seriesKey } from "./result-selectors";
-import type { CusumChartData, CusumChartDataset } from "./types";
+import type {
+  ChartInitialBaselineBand,
+  CusumChartData,
+  CusumChartDataset,
+} from "./types";
 
 const SERIES_COLORS = [
   "#55308a",
@@ -16,8 +24,11 @@ const SERIES_COLORS = [
 export function buildCusumChartData(
   records: ProcessedCusumRecord[],
   threshold: number,
+  baselineWindow = 0,
+  baselineReferenceRecords: ProcessedCusumRecord[] = records,
 ): CusumChartData {
   const labels = [...new Set(records.map((record) => record.date))].sort((left, right) => left.localeCompare(right));
+  const baselineKeys = initialBaselinePeriodRecordKeys(baselineReferenceRecords, baselineWindow);
   const recordsBySeries = new Map<string, Map<string, ProcessedCusumRecord>>();
   for (const record of records) {
     const key = seriesKey(record);
@@ -70,5 +81,32 @@ export function buildCusumChartData(
     });
   }
 
-  return { labels, datasets };
+  return {
+    labels,
+    datasets,
+    initial_baseline_bands: initialBaselineBands(records, labels, baselineKeys),
+  };
+}
+
+function initialBaselineBands(
+  records: ProcessedCusumRecord[],
+  labels: string[],
+  baselineKeys: ReadonlySet<string>,
+): ChartInitialBaselineBand[] {
+  const labelIndexes = new Map(labels.map((label, index) => [label, index]));
+  const indexes = [...new Set(records.flatMap((record) => {
+    if (!isInitialBaselinePeriodRecord(record, baselineKeys)) return [];
+    const index = labelIndexes.get(record.date);
+    return index === undefined ? [] : [index];
+  }))].sort((left, right) => left - right);
+  const bands: ChartInitialBaselineBand[] = [];
+  for (const index of indexes) {
+    const previous = bands.at(-1);
+    if (previous !== undefined && index === previous.end_index + 1) {
+      previous.end_index = index;
+    } else {
+      bands.push({ start_index: index, end_index: index });
+    }
+  }
+  return bands;
 }

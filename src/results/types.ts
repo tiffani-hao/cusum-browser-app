@@ -65,6 +65,12 @@ export interface CusumChartDataset {
 export interface CusumChartData {
   labels: string[];
   datasets: CusumChartDataset[];
+  initial_baseline_bands: ChartInitialBaselineBand[];
+}
+
+export interface ChartInitialBaselineBand {
+  start_index: number;
+  end_index: number;
 }
 
 export type ExportResultType = "processed-results" | "filtered-results" | "alerts";

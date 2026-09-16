@@ -1,5 +1,6 @@
 import type { AnalysisWorkflowState } from "../import";
 import {
+  chartWidthForIntervals,
   filterProcessedRecords,
   filterSelectedSeries,
   formatResultNumber,
@@ -7,16 +8,17 @@ import {
   uniqueAreas,
   uniqueRiskGroups,
 } from "../results";
-import type { ChartRenderer } from "../results";
+import type { ChartRenderer, VisualizationSnapshot } from "../results";
 import type { AppStateStore } from "../state";
 import { renderAlertTable } from "./alert-table-view";
 import { renderChartView } from "./chart-view";
-import type { CsvDownloader } from "./export-view";
+import type { CsvDownloader, VisualizationDownloader } from "./export-view";
 import { renderProcessedTable } from "./processed-table-view";
 
 export interface ResultViewDependencies {
   chart: ChartRenderer;
   download: CsvDownloader;
+  downloadVisualization: VisualizationDownloader;
   requestRender(): void;
 }
 
@@ -24,8 +26,19 @@ export class ResultView {
   private readonly canvas: HTMLCanvasElement;
   private readonly chartSummary: HTMLElement;
   private readonly chartEmpty: HTMLElement;
+  private readonly chartViewport: HTMLElement;
+  private readonly chartSurface: HTMLElement;
+  private readonly expandedChartViewport: HTMLElement;
+  private readonly expandedChartOverlay: HTMLElement;
+  private readonly expandedChartDialog: HTMLElement;
+  private readonly expandChartButton: HTMLButtonElement;
+  private readonly resetChartZoomButton: HTMLButtonElement;
+  private readonly resetExpandedChartZoomButton: HTMLButtonElement;
+  private readonly closeExpandedChartButton: HTMLButtonElement;
   private lastChartKey = "";
   private lastChartRecords: unknown = null;
+  private currentChartIntervalCount = 0;
+  private normalChartScrollLeft = 0;
 
   constructor(
     private readonly root: HTMLElement,
@@ -36,6 +49,15 @@ export class ResultView {
     this.canvas = requiredElement(root, "#cusum-chart");
     this.chartSummary = requiredElement(root, "#chart-summary");
     this.chartEmpty = requiredElement(root, "#chart-empty");
+    this.chartViewport = requiredElement(root, "#chart-viewport");
+    this.chartSurface = requiredElement(root, "#chart-surface");
+    this.expandedChartViewport = requiredElement(root, "#expanded-chart-viewport");
+    this.expandedChartOverlay = requiredElement(root, "#expanded-chart-overlay");
+    this.expandedChartDialog = requiredElement(root, "#expanded-chart-dialog");
+    this.expandChartButton = requiredElement(root, "#expand-chart");
+    this.resetChartZoomButton = requiredElement(root, "#reset-chart-zoom");
+    this.resetExpandedChartZoomButton = requiredElement(root, "#reset-expanded-chart-zoom");
+    this.closeExpandedChartButton = requiredElement(root, "#close-expanded-chart");
     requiredElement<HTMLButtonElement>(root, "#reset-display-filters").addEventListener("click", () => {
       store.resetDisplayFilters();
       dependencies.requestRender();
@@ -43,6 +65,21 @@ export class ResultView {
     requiredElement<HTMLButtonElement>(root, "#export-all").addEventListener("click", () => this.export("all"));
     requiredElement<HTMLButtonElement>(root, "#export-filtered").addEventListener("click", () => this.export("filtered"));
     requiredElement<HTMLButtonElement>(root, "#export-alerts").addEventListener("click", () => this.export("alerts"));
+    requiredElement<HTMLButtonElement>(root, "#export-visualization").addEventListener("click", () => {
+      this.exportVisualization();
+    });
+    this.expandChartButton.addEventListener("click", () => this.openExpandedChart());
+    this.resetChartZoomButton.addEventListener("click", () => this.resetChartZoom());
+    this.resetExpandedChartZoomButton.addEventListener("click", () => this.resetChartZoom());
+    this.closeExpandedChartButton.addEventListener("click", () => this.closeExpandedChart());
+    this.expandedChartOverlay.addEventListener("click", (event) => {
+      if (event.target === this.expandedChartOverlay) this.closeExpandedChart();
+    });
+    this.expandedChartDialog.addEventListener("keydown", (event) => this.trapExpandedChartFocus(event));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !this.expandedChartOverlay.hidden) this.closeExpandedChart();
+    });
+    window.addEventListener("resize", () => this.updateChartWidth());
   }
 
   render(state: Readonly<AnalysisWorkflowState>): void {
@@ -58,6 +95,8 @@ export class ResultView {
     this.renderFilters(state, disabled);
     const filtered = filterProcessedRecords(result.records, state.result_view.filters);
     const chartRecords = filterSelectedSeries(filtered, state.result_view.filters.selected_series);
+    this.currentChartIntervalCount = new Set(chartRecords.map((record) => record.date)).size;
+    this.updateChartWidth();
     requiredElement<HTMLElement>(this.root, "#filter-result-summary").textContent =
       `${filtered.length.toLocaleString()} of ${result.records.length.toLocaleString()} processed records displayed; ` +
       `${state.result_view.filters.selected_series.length.toLocaleString()} chart series selected.`;
@@ -67,11 +106,20 @@ export class ResultView {
     });
     if (this.lastChartRecords !== result.records || this.lastChartKey !== chartKey) {
       renderChartView(
-        { canvas: this.canvas, summary: this.chartSummary, empty: this.chartEmpty },
+        {
+          canvas: this.canvas,
+          summary: this.chartSummary,
+          empty: this.chartEmpty,
+          guidance: requiredElement(this.root, "#initial-baseline-chart-help"),
+        },
         chartRecords,
         result.summary.threshold,
         this.dependencies.chart,
+        result.summary.baseline_window,
+        result.summary.analysis_interval,
+        result.records,
       );
+      this.setChartInteractionStatus("");
       this.lastChartRecords = result.records;
       this.lastChartKey = chartKey;
     }
@@ -109,13 +157,22 @@ export class ResultView {
       },
     );
     for (const button of this.root.querySelectorAll<HTMLButtonElement>(".export-button")) button.disabled = disabled;
+    const chartUnavailable = this.canvas.hidden;
+    this.expandChartButton.disabled = disabled || chartUnavailable;
+    this.resetChartZoomButton.disabled = disabled || chartUnavailable;
+    this.resetExpandedChartZoomButton.disabled = disabled || chartUnavailable;
+    requiredElement<HTMLButtonElement>(this.root, "#export-visualization").disabled = disabled || chartUnavailable;
     requiredElement<HTMLElement>(this.root, "#export-status").textContent = state.result_view.export_message;
   }
 
   clear(): void {
+    this.closeExpandedChart(false);
     this.dependencies.chart.clear();
     this.lastChartKey = "";
     this.lastChartRecords = null;
+    this.currentChartIntervalCount = 0;
+    this.chartSurface.style.removeProperty("width");
+    this.setChartInteractionStatus("");
   }
 
   private renderMetrics(state: Readonly<AnalysisWorkflowState>): void {
@@ -187,6 +244,108 @@ export class ResultView {
     this.store.setExportMessage(`${records.length.toLocaleString()} records exported locally as ${filename}.`);
     this.dependencies.requestRender();
   }
+
+  private exportVisualization(): void {
+    const state = this.store.state;
+    const result = state.analysis_result;
+    if (result?.success !== true || state.result_view.result_stale || this.canvas.hidden) return;
+    const filtered = filterProcessedRecords(result.records, state.result_view.filters);
+    const chartRecords = filterSelectedSeries(filtered, state.result_view.filters.selected_series);
+    const dates = [...new Set(chartRecords.map((record) => record.date))]
+      .sort((left, right) => left.localeCompare(right));
+    if (dates.length === 0) return;
+    try {
+      const snapshot: VisualizationSnapshot = {
+        image_data_url: this.canvas.toDataURL("image/png"),
+        image_width: this.canvas.clientWidth || this.canvas.width,
+        image_height: this.canvas.clientHeight || this.canvas.height,
+        date_start: dates[0]!,
+        date_end: dates.at(-1)!,
+        series_names: independentSeries(chartRecords).map((series) => series.label),
+        threshold: result.summary.threshold,
+        alert_count: chartRecords.filter((record) => record.is_alert).length,
+        baseline_window: result.summary.baseline_window,
+        analysis_interval: result.summary.analysis_interval,
+      };
+      const filename = this.dependencies.downloadVisualization(snapshot);
+      this.store.setExportMessage(`Visualization exported locally as ${filename}.`);
+    } catch {
+      this.store.setExportMessage("The visualization could not be exported in this browser.");
+    }
+    this.dependencies.requestRender();
+  }
+
+  private updateChartWidth(): void {
+    const viewport = this.chartSurface.parentElement;
+    if (!(viewport instanceof HTMLElement)) return;
+    const width = chartWidthForIntervals(this.currentChartIntervalCount, viewport.clientWidth);
+    if (width > 0) this.chartSurface.style.width = `${width}px`;
+    else this.chartSurface.style.removeProperty("width");
+    this.dependencies.chart.resize?.();
+  }
+
+  private resetChartZoom(): void {
+    this.dependencies.chart.resetZoom?.();
+    this.setChartInteractionStatus("Chart zoom reset. All displayed dates are visible.");
+  }
+
+  private setChartInteractionStatus(message: string): void {
+    requiredElement<HTMLElement>(this.root, "#chart-interaction-status").textContent = message;
+    requiredElement<HTMLElement>(this.root, "#expanded-chart-interaction-status").textContent = message;
+  }
+
+  private openExpandedChart(): void {
+    if (this.expandChartButton.disabled || !this.expandedChartOverlay.hidden) return;
+    this.normalChartScrollLeft = this.chartViewport.scrollLeft;
+    this.expandedChartOverlay.hidden = false;
+    this.expandChartButton.setAttribute("aria-expanded", "true");
+    this.setExpandedBackgroundInert(true);
+    this.expandedChartViewport.append(this.chartSurface);
+    requiredElement<HTMLElement>(this.root, "#expanded-chart-summary").textContent = this.chartSummary.textContent;
+    this.updateChartWidth();
+    this.expandedChartViewport.scrollLeft = this.normalChartScrollLeft;
+    this.closeExpandedChartButton.focus();
+  }
+
+  private closeExpandedChart(returnFocus = true): void {
+    if (this.expandedChartOverlay.hidden) return;
+    this.normalChartScrollLeft = this.expandedChartViewport.scrollLeft;
+    this.chartViewport.append(this.chartSurface);
+    this.expandedChartOverlay.hidden = true;
+    this.expandChartButton.setAttribute("aria-expanded", "false");
+    this.setExpandedBackgroundInert(false);
+    this.updateChartWidth();
+    this.chartViewport.scrollLeft = this.normalChartScrollLeft;
+    if (returnFocus && !this.root.hidden) this.expandChartButton.focus();
+  }
+
+  private setExpandedBackgroundInert(inert: boolean): void {
+    const main = this.root.parentElement;
+    const header = document.querySelector<HTMLElement>("#application-header");
+    const elements = [
+      ...(header === null ? [] : [header]),
+      ...([...main?.children ?? []].filter((element) => element !== this.root) as HTMLElement[]),
+      ...([...this.root.children].filter((element) => element !== this.expandedChartOverlay) as HTMLElement[]),
+    ];
+    elements.forEach((element) => element.toggleAttribute("inert", inert));
+  }
+
+  private trapExpandedChartFocus(event: KeyboardEvent): void {
+    if (event.key !== "Tab") return;
+    const focusable = [...this.expandedChartDialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )];
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (first === undefined || last === undefined) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 }
 
 function resultMarkup(): string {
@@ -199,7 +358,7 @@ function resultMarkup(): string {
 
     <section class="result-subsection display-filter-section" aria-labelledby="display-filter-heading">
       <div class="section-heading">
-        <div><h3 id="display-filter-heading">Display Filters</h3><p>Display filters change what is shown; they do not recalculate CUSUM.</p></div>
+      <div><h3 id="display-filter-heading">Display Filters</h3><p>Display filters affect visualization only and do not recalculate the analysis or change the analysis settings.</p></div>
         <button id="reset-display-filters" class="button button-secondary" type="button">Reset Display Filters</button>
       </div>
       <div class="filter-grid">
@@ -223,11 +382,27 @@ function resultMarkup(): string {
     </section>
 
     <section class="result-subsection" aria-labelledby="chart-heading">
-      <h3 id="chart-heading">CUSUM time series</h3>
+      <div class="chart-section-heading">
+        <h3 id="chart-heading">CUSUM time series</h3>
+        <div class="chart-actions">
+          <button id="reset-chart-zoom" class="button button-secondary" type="button">Reset zoom</button>
+          <button id="expand-chart" class="button button-secondary" type="button" aria-haspopup="dialog" aria-controls="expanded-chart-dialog" aria-expanded="false">Expand chart</button>
+        </div>
+      </div>
       <p>The dashed line is the alert threshold. A point is an alert only when CUSUM is strictly greater than the threshold.</p>
+      <p class="chart-zoom-help">Drag across the chart to zoom on dates. Hold Shift while dragging to pan, use Control + mouse wheel or pinch to zoom, or use Reset zoom.</p>
+      <p id="chart-interaction-status" class="visually-hidden" role="status" aria-live="polite"></p>
+      <details class="initial-baseline-guidance">
+        <summary><span class="initial-baseline-swatch" aria-hidden="true"></span>Initial baseline period</summary>
+        <p id="initial-baseline-chart-help"></p>
+      </details>
       <p id="chart-summary" class="chart-summary"></p>
       <p id="chart-empty" class="empty-state" hidden>No chart data match the current filters.</p>
-      <div class="chart-frame"><canvas id="cusum-chart" aria-label="CUSUM time-series chart" role="img"></canvas></div>
+      <div id="chart-viewport" class="chart-viewport" role="region" aria-label="Scrollable CUSUM time-series chart" tabindex="0">
+        <div id="chart-surface" class="chart-surface">
+          <canvas id="cusum-chart" aria-label="CUSUM time-series chart" aria-describedby="initial-baseline-chart-help chart-summary" role="img"></canvas>
+        </div>
+      </div>
     </section>
 
     <section class="result-subsection" aria-labelledby="alert-table-heading">
@@ -241,16 +416,39 @@ function resultMarkup(): string {
     </section>
 
     <section class="result-subsection" aria-labelledby="export-heading">
-      <h3 id="export-heading">Local CSV export</h3>
-      <p>Exports contain processed results only and are generated on this device.</p>
+      <h3 id="export-heading">Local results export</h3>
+      <p>CSV exports contain processed results. The visualization export contains the currently displayed chart. All exports are generated on this device.</p>
       <p class="muted">A current completed analysis is required. Exports are disabled while results are stale.</p>
       <div class="button-row">
         <button id="export-all" class="button button-secondary export-button" type="button">Export all processed results</button>
         <button id="export-filtered" class="button button-secondary export-button" type="button">Export filtered processed results</button>
         <button id="export-alerts" class="button button-secondary export-button" type="button">Export alerts only</button>
+        <button id="export-visualization" class="button button-secondary export-button" type="button">Export visualization (HTML)</button>
       </div>
       <p id="export-status" role="status" aria-live="polite"></p>
     </section>
+
+    <div id="expanded-chart-overlay" class="expanded-chart-overlay" hidden>
+      <section
+        id="expanded-chart-dialog"
+        class="expanded-chart-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="expanded-chart-title"
+        aria-describedby="expanded-chart-summary"
+      >
+        <div class="expanded-chart-header">
+          <h3 id="expanded-chart-title">CUSUM time series</h3>
+          <div class="chart-actions">
+            <button id="reset-expanded-chart-zoom" class="button button-secondary" type="button">Reset zoom</button>
+            <button id="close-expanded-chart" class="button button-secondary" type="button">Close expanded chart</button>
+          </div>
+        </div>
+        <p id="expanded-chart-summary" class="expanded-chart-summary"></p>
+        <p id="expanded-chart-interaction-status" class="visually-hidden" role="status" aria-live="polite"></p>
+        <div id="expanded-chart-viewport" class="chart-viewport expanded-chart-viewport" role="region" aria-label="Scrollable expanded CUSUM time-series chart" tabindex="0"></div>
+      </section>
+    </div>
   `;
 }
 

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { analyzeCusum } from "../src/core";
 import type { AnalysisInterval, ProcessedCusumRecord } from "../src/core";
 import type { FileParsingResult } from "../src/import";
-import type { ExportResultType } from "../src/results";
+import type { ExportResultType, VisualizationSnapshot } from "../src/results";
 import { createWorkflowApp } from "../src/ui/workflow-app";
 
 function result(columns: string[] = ["area", "date", "count"], rows: Record<string, string>[] = [
@@ -31,12 +31,15 @@ function setup(parsed = result()) {
   const root = document.querySelector<HTMLElement>("#app");
   if (root === null) throw new Error("Missing test root.");
   const analyze = vi.fn(analyzeCusum);
-  const chart = { render: vi.fn(), clear: vi.fn() };
+  const chart = { render: vi.fn(), clear: vi.fn(), resetZoom: vi.fn() };
   const download = vi.fn((
     _records: ProcessedCusumRecord[],
     _type: ExportResultType,
     _interval: AnalysisInterval,
   ) => "cusum-test.csv");
+  const downloadVisualization = vi.fn((_snapshot: VisualizationSnapshot) =>
+    "cusum-visualization-2026-09-15.html"
+  );
   const controller = createWorkflowApp(root, {
     importFile: vi.fn(async (file: File) => parsed.success ? {
       ...parsed,
@@ -45,8 +48,9 @@ function setup(parsed = result()) {
     analyze,
     chart,
     download,
+    downloadVisualization,
   });
-  return { root, controller, analyze, chart, download };
+  return { root, controller, analyze, chart, download, downloadVisualization };
 }
 
 describe("Application workflow", () => {
@@ -149,7 +153,10 @@ describe("Application workflow", () => {
     const { root, controller } = setup();
     await controller.selectFile(new File(["data"], "data.csv"));
     controller.runAnalysis();
-    expect(root.querySelector("#browse-files")?.tagName).toBe("BUTTON");
+    expect(root.querySelector("#drop-zone")?.tagName).toBe("BUTTON");
+    expect(root.querySelector("#drop-zone")?.getAttribute("aria-label")).toBe(
+      "Choose or drop a CSV or XLSX file",
+    );
     expect(root.querySelector("#live-status")?.getAttribute("aria-live")).toBe("polite");
     expect(root.querySelector("#file-input")?.getAttribute("aria-label")).toBe("Choose CSV or XLSX file");
     expect(root.querySelector("#chart-summary")).not.toBeNull();
@@ -200,6 +207,72 @@ describe("Application workflow", () => {
     const before = chart.render.mock.calls.length;
     root.querySelector<HTMLButtonElement>("#processed-table-container .pagination button:last-child")?.click();
     expect(chart.render).toHaveBeenCalledTimes(before);
+  });
+
+  it("opens and closes the expanded view without rerunning analysis", async () => {
+    const { root, controller, analyze } = setup();
+    await controller.selectFile(new File(["data"], "data.csv"));
+    controller.runAnalysis();
+    const overlay = root.querySelector<HTMLElement>("#expanded-chart-overlay")!;
+    const expand = root.querySelector<HTMLButtonElement>("#expand-chart")!;
+    const close = root.querySelector<HTMLButtonElement>("#close-expanded-chart")!;
+
+    expand.click();
+    expect(overlay.hidden).toBe(false);
+    expect(expand.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(close);
+    expect(root.querySelector("#expanded-chart-viewport #chart-surface")).not.toBeNull();
+    expect(analyze).toHaveBeenCalledOnce();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(overlay.hidden).toBe(true);
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(expand);
+    expect(root.querySelector("#chart-viewport #chart-surface")).not.toBeNull();
+    expect(analyze).toHaveBeenCalledOnce();
+  });
+
+  it("resets chart zoom without rerunning analysis", async () => {
+    const { root, controller, analyze, chart } = setup();
+    await controller.selectFile(new File(["data"], "data.csv"));
+    controller.runAnalysis();
+
+    root.querySelector<HTMLButtonElement>("#reset-chart-zoom")!.click();
+
+    expect(chart.resetZoom).toHaveBeenCalledOnce();
+    expect(analyze).toHaveBeenCalledOnce();
+    expect(root.querySelector("#chart-interaction-status")?.textContent).toContain("Chart zoom reset");
+  });
+
+  it("exports the currently filtered chart as a local visualization snapshot", async () => {
+    const rows = [
+      { area: "A", date: "2024-01-01", count: "1" },
+      { area: "B", date: "2024-01-01", count: "2" },
+      { area: "B", date: "2024-02-01", count: "3" },
+    ];
+    const toDataURL = vi.spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValue("data:image/png;base64,c2FmZQ==");
+    const { root, controller, analyze, downloadVisualization } = setup(result(undefined, rows));
+    await controller.selectFile(new File(["data"], "data.csv"));
+    controller.runAnalysis();
+    const areaFilter = root.querySelector<HTMLSelectElement>("#area-filter")!;
+    [...areaFilter.options].forEach((option) => { option.selected = option.value === "B"; });
+    areaFilter.dispatchEvent(new Event("change", { bubbles: true }));
+
+    root.querySelector<HTMLButtonElement>("#export-visualization")!.click();
+
+    expect(analyze).toHaveBeenCalledOnce();
+    expect(downloadVisualization).toHaveBeenCalledOnce();
+    expect(downloadVisualization.mock.calls[0]?.[0]).toMatchObject({
+      date_start: "2024-01-01",
+      date_end: "2024-02-01",
+      series_names: ["B"],
+      threshold: 3,
+      baseline_window: 36,
+      analysis_interval: "monthly",
+      image_data_url: "data:image/png;base64,c2FmZQ==",
+    });
+    expect(root.querySelector("#export-status")?.textContent).toContain("cusum-visualization-2026-09-15.html");
+    toDataURL.mockRestore();
   });
 
   it("exports all, filtered, and alert-only completed results locally", async () => {
@@ -264,13 +337,25 @@ describe("Application workflow", () => {
     expect(chart.clear.mock.calls.length).toBeGreaterThan(previousClears);
   });
 
-  it("activates the file input from the native browse button", () => {
+  it("activates the file input from anywhere in the native upload box", () => {
     const { root } = setup();
     const fileInput = root.querySelector<HTMLInputElement>("#file-input");
-    const browseButton = root.querySelector<HTMLButtonElement>("#browse-files");
-    if (fileInput === null || browseButton === null) throw new Error("Missing upload controls.");
+    const dropZone = root.querySelector<HTMLButtonElement>("#drop-zone");
+    if (fileInput === null || dropZone === null) throw new Error("Missing upload controls.");
     const click = vi.spyOn(fileInput, "click").mockImplementation(() => undefined);
-    browseButton.click();
+    dropZone.querySelector<HTMLElement>(".drop-zone-copy")!.click();
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  it("activates the file input from the upload box keyboard control", () => {
+    const { root } = setup();
+    const fileInput = root.querySelector<HTMLInputElement>("#file-input");
+    const dropZone = root.querySelector<HTMLButtonElement>("#drop-zone");
+    if (fileInput === null || dropZone === null) throw new Error("Missing upload controls.");
+    const click = vi.spyOn(fileInput, "click").mockImplementation(() => undefined);
+    const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    dropZone.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
     expect(click).toHaveBeenCalledOnce();
   });
 
@@ -278,9 +363,13 @@ describe("Application workflow", () => {
     const { root, controller } = setup();
     const dropZone = root.querySelector<HTMLElement>("#drop-zone");
     const dropped = new File(["data"], "dropped.csv");
+    const dragEnter = new Event("dragenter", { bubbles: true, cancelable: true });
+    dropZone?.dispatchEvent(dragEnter);
+    expect(dropZone?.classList.contains("is-dragging")).toBe(true);
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [dropped] } });
     dropZone?.dispatchEvent(event);
+    expect(dropZone?.classList.contains("is-dragging")).toBe(false);
     await vi.waitFor(() => expect(controller.getState().metadata?.filename).toBe("dropped.csv"));
   });
 });

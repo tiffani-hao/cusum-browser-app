@@ -182,9 +182,10 @@ describe("Results, alerts, and Help", () => {
   });
 
   it("summarizes alerts, previews five, and expands and collapses", async () => {
-    const alerts = Array.from({ length: 7 }, (_, index) =>
-      record(index + 1, true, index % 2 === 0 ? "Group 1" : "Group 2")
-    );
+    const alerts = Array.from({ length: 10 }, (_, index) => ({
+      ...record(index + 1, index >= 3, "Group 1"),
+      area: "Area A",
+    }));
     const { root, controller } = setup(completedResult(alerts));
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     controller.runAnalysis();
@@ -210,16 +211,84 @@ describe("Results, alerts, and Help", () => {
     expect(root.querySelector("main .help-panel")).toBeNull();
     help.click();
     expect(overlay.hidden).toBe(false);
+    expect(document.body.classList.contains("help-open")).toBe(true);
     expect(document.activeElement).toBe(root.querySelector("#close-help"));
     expect(root.querySelectorAll(".sample-link")).toHaveLength(5);
-    expect(root.querySelector("#help-dialog")?.textContent).toContain("CUSUM methodology");
+    expect(root.querySelector("#help-dialog")?.textContent).toContain("About this tool");
+    expect(root.querySelector("#help-dialog")?.textContent).toContain(
+      "Select Custom to specify your own CUSUM settings",
+    );
+    expect(root.querySelector("#help-dialog")?.textContent).toContain("About CUSUM");
+    const body = root.querySelector<HTMLElement>(".help-dialog-body")!;
+    body.scrollTop = 200;
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(overlay.hidden).toBe(true);
+    expect(document.body.classList.contains("help-open")).toBe(false);
     expect(document.activeElement).toBe(help);
     help.click();
+    expect(body.scrollTop).toBe(0);
     root.querySelector<HTMLButtonElement>("#close-help")!.click();
     expect(overlay.hidden).toBe(true);
     expect(document.activeElement).toBe(help);
+  });
+
+  it("provides unnumbered section navigation and collapsed troubleshooting disclosures", () => {
+    const { root } = setup();
+    const expectedSections = [
+      ["About this tool", "#help-about"],
+      ["Preparing and uploading data", "#help-uploading"],
+      ["Presets and analysis settings", "#help-settings"],
+      ["Initial baseline period", "#help-baseline"],
+      ["Understanding the graph and alerts", "#help-graph"],
+      ["Display filters", "#help-filters"],
+      ["Exporting results", "#help-exporting"],
+      ["Privacy and browser session", "#help-privacy"],
+      ["Troubleshooting", "#help-troubleshooting"],
+    ] as const;
+    const navigation = root.querySelector<HTMLElement>(".help-section-nav")!;
+    const links = [...navigation.querySelectorAll<HTMLAnchorElement>("a")];
+    expect(navigation.getAttribute("aria-label")).toBe("Help sections");
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual(expectedSections);
+    links.forEach((link) => expect(root.querySelector(link.getAttribute("href")!)).not.toBeNull());
+    expect(navigation.textContent).not.toContain("Contents");
+    const headings = [...root.querySelectorAll(".help-dialog-body > section > h3")]
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([...expectedSections.map(([heading]) => heading), "About CUSUM"]);
+    expect(headings.every((heading) => !/^\d+\./.test(heading ?? ""))).toBe(true);
+
+    const disclosures = [...root.querySelectorAll<HTMLDetailsElement>(".help-troubleshooting details")];
+    expect(disclosures).toHaveLength(6);
+    expect(disclosures.every((details) => !details.open)).toBe(true);
+    disclosures[0]?.querySelector("summary")?.click();
+    expect(disclosures[0]?.open).toBe(true);
+    expect(disclosures.slice(1).every((details) => !details.open)).toBe(true);
+
+    root.querySelector<HTMLButtonElement>("#help-button")!.click();
+    const summaries = [...root.querySelectorAll<HTMLElement>(".help-troubleshooting summary")];
+    const lastSummary = summaries.at(-1)!;
+    lastSummary.focus();
+    lastSummary.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(root.querySelector("#close-help"));
+    root.querySelector<HTMLButtonElement>("#close-help")!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(lastSummary);
+    root.querySelector<HTMLButtonElement>("#close-help")!.click();
+  });
+
+  it("keeps the requested examples, large desktop sizing, and narrow-screen override", () => {
+    const { root } = setup();
+    expect(root.querySelector('pre[aria-label="Basic CSV format"]')?.textContent).toBe(
+      "area,date,count\nArea A,2024-01-01,5\nArea A,2024-02-01,7",
+    );
+    expect(root.querySelector('pre[aria-label="Risk-group CSV format"]')?.textContent).toBe(
+      "area,date,count,risk_group\nArea A,2024-01-01,5,Group 1\nArea A,2024-02-01,7,Group 1",
+    );
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    expect(css).toContain("width: min(82vw, 82rem)");
+    expect(css).toContain("height: min(88vh, 56rem)");
+    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(css).toContain("height: 100vh");
   });
 });
 

@@ -1,5 +1,9 @@
 import type { ProcessedCusumRecord } from "../core";
-import { formatResultNumber, paginateRecords, sortAlertRecords } from "../results";
+import {
+  formatResultNumber,
+  paginateRecords,
+  sortAlertRecords,
+} from "../results";
 
 const ALERT_PREVIEW_SIZE = 5;
 

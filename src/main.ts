@@ -1,4 +1,5 @@
 import "./styles.css";
+import "./results/chart-zoom-plugin";
 import { createWorkflowApp } from "./ui/workflow-app";
 
 const app = document.querySelector<HTMLElement>("#app");

@@ -9,10 +9,11 @@ describe("chart practical-series guidance", () => {
     const canvas = document.createElement("canvas");
     const summary = document.createElement("p");
     const empty = document.createElement("p");
+    const guidance = document.createElement("p");
     const chart = { render: vi.fn(), clear: vi.fn() };
     const records = Array.from({ length: MAX_PRACTICAL_CHART_SERIES + 1 }, (_, index) =>
       record(`Area ${index + 1}`));
-    renderChartView({ canvas, summary, empty }, records, 3, chart);
+    renderChartView({ canvas, summary, empty, guidance }, records, 3, chart, 36, "monthly");
     expect(chart.render).not.toHaveBeenCalled();
     expect(chart.clear).toHaveBeenCalledOnce();
     expect(summary.textContent).toContain(`Select ${MAX_PRACTICAL_CHART_SERIES} or fewer`);
@@ -24,10 +25,26 @@ describe("chart practical-series guidance", () => {
     const canvas = document.createElement("canvas");
     const summary = document.createElement("p");
     const empty = document.createElement("p");
+    const guidance = document.createElement("p");
     const chart = { render: vi.fn(), clear: vi.fn() };
-    renderChartView({ canvas, summary, empty }, [], 3, chart);
+    renderChartView({ canvas, summary, empty, guidance }, [], 3, chart, 36, "monthly");
     expect(summary.textContent).toContain("Select a series or reset the filters");
     expect(empty.textContent).toContain("no visible series");
+  });
+
+  it("describes a settings-driven initial baseline period without hiding values", () => {
+    const canvas = document.createElement("canvas");
+    const summary = document.createElement("p");
+    const empty = document.createElement("p");
+    const guidance = document.createElement("p");
+    const chart = { render: vi.fn(), clear: vi.fn() };
+    const records = [record("Area A")];
+
+    renderChartView({ canvas, summary, empty, guidance }, records, 3, chart, 12, "weekly");
+
+    expect(guidance.textContent).toContain("first 12 weekly intervals");
+    expect(guidance.textContent).toContain("All data, CUSUM values, and alert points remain visible");
+    expect(summary.textContent).toContain("all chart values remain visible");
   });
 });
 

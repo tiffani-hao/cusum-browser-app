@@ -1,5 +1,9 @@
 import type { ProcessedCusumRecord } from "../core";
-import { formatResultNumber, paginateRecords, PROCESSED_PAGE_SIZES } from "../results";
+import {
+  formatResultNumber,
+  paginateRecords,
+  PROCESSED_PAGE_SIZES,
+} from "../results";
 
 export interface ProcessedTableActions {
   setPage(page: number): void;

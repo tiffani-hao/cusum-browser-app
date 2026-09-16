@@ -24,8 +24,8 @@ import type {
 import { AppStateStore } from "../state";
 import { CusumChartController } from "../results";
 import type { ChartRenderer } from "../results";
-import { defaultCsvDownloader } from "./export-view";
-import type { CsvDownloader } from "./export-view";
+import { defaultCsvDownloader, defaultVisualizationDownloader } from "./export-view";
+import type { CsvDownloader, VisualizationDownloader } from "./export-view";
 import { ResultView } from "./result-view";
 import { helpDialogMarkup, initializeHelpDialog } from "./help-view";
 
@@ -36,6 +36,7 @@ export interface WorkflowDependencies {
   analyze(records: unknown, options: unknown): AnalysisResult;
   chart?: ChartRenderer;
   download?: CsvDownloader;
+  downloadVisualization?: VisualizationDownloader;
 }
 
 export interface WorkflowController {
@@ -73,14 +74,21 @@ function staticMarkup(): string {
           <div><h2 id="upload-heading">Upload data</h2><p>Select one locally stored surveillance file.</p></div>
           <button id="clear-data" class="button button-secondary" type="button" disabled>Clear Data</button>
         </div>
-        <div id="drop-zone" class="drop-zone" aria-describedby="upload-help privacy-note" aria-busy="false">
-          <input id="file-input" class="visually-hidden" type="file" aria-label="Choose CSV or XLSX file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-          <div class="drop-zone-copy">
-            <span class="drop-icon" aria-hidden="true">＋</span>
-            <span><strong>Drop a CSV or XLSX file here</strong><small id="upload-help">One file at a time · maximum ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MiB</small></span>
-          </div>
-          <button id="browse-files" class="button button-primary" type="button">Browse Files</button>
-        </div>
+        <input id="file-input" class="visually-hidden" type="file" aria-label="Choose CSV or XLSX file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+        <button
+          id="drop-zone"
+          class="drop-zone"
+          type="button"
+          aria-label="Choose or drop a CSV or XLSX file"
+          aria-describedby="upload-help privacy-note"
+          aria-busy="false"
+        >
+          <span class="drop-zone-copy">
+            <span class="drop-icon" aria-hidden="true">+</span>
+            <span class="drop-zone-text"><strong>Drop a CSV or XLSX file here</strong><small id="upload-help">One file at a time · maximum ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MiB</small></span>
+          </span>
+          <span class="drop-zone-browse" aria-hidden="true">Browse Files</span>
+        </button>
         <p id="privacy-note" class="local-note">Processed locally in your browser.</p>
         <div class="workflow-status">
           <span id="state-label" class="state-label">Ready</span>
@@ -171,6 +179,7 @@ export function createWorkflowApp(
     {
       chart: dependencies.chart ?? new CusumChartController(),
       download: dependencies.download ?? defaultCsvDownloader,
+      downloadVisualization: dependencies.downloadVisualization ?? defaultVisualizationDownloader,
       requestRender: () => render(),
     },
   );
@@ -178,8 +187,7 @@ export function createWorkflowApp(
   let optionIssues: string[] = [];
 
   const fileInput = requiredElement<HTMLInputElement>(root, "#file-input");
-  const browseButton = requiredElement<HTMLButtonElement>(root, "#browse-files");
-  const dropZone = requiredElement<HTMLElement>(root, "#drop-zone");
+  const dropZone = requiredElement<HTMLButtonElement>(root, "#drop-zone");
   const clearButton = requiredElement<HTMLButtonElement>(root, "#clear-data");
   const runButton = requiredElement<HTMLButtonElement>(root, "#run-analysis");
   const diseasePreset = requiredElement<HTMLSelectElement>(root, "#disease-preset");
@@ -274,7 +282,12 @@ export function createWorkflowApp(
     const file = fileInput.files?.[0];
     if (file !== undefined) void selectFile(file);
   });
-  browseButton.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    fileInput.click();
+  });
   for (const eventName of ["dragenter", "dragover"]) {
     dropZone.addEventListener(eventName, (event) => {
       event.preventDefault();
@@ -318,10 +331,9 @@ export function createWorkflowApp(
     requiredElement<HTMLElement>(root, "#state-label").textContent = statusLabel(state.status);
     clearButton.disabled = state.status === "idle";
     const isBusy = state.status === "parsing" || state.status === "analysis-running";
-    browseButton.disabled = isBusy;
+    dropZone.disabled = isBusy;
     fileInput.disabled = isBusy;
     dropZone.setAttribute("aria-busy", String(state.status === "parsing"));
-    dropZone.setAttribute("aria-disabled", String(isBusy));
     dropZone.classList.toggle("is-disabled", isBusy);
 
     const errorSummary = requiredElement<HTMLElement>(root, "#error-summary");

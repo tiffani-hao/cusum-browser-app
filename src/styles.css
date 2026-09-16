@@ -35,9 +35,11 @@ html {
 }
 
 body {
+  max-width: 100%;
   min-width: 0;
   margin: 0;
   background: var(--page-background);
+  overflow-x: hidden;
 }
 
 button,
@@ -145,6 +147,7 @@ p {
 
 .drop-zone {
   display: flex;
+  width: 100%;
   min-height: 8.25rem;
   align-items: center;
   justify-content: space-between;
@@ -154,6 +157,10 @@ p {
   border: 2px dashed #9f8dbc;
   border-radius: 0.55rem;
   background: var(--purple-50);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition: border-color 120ms ease, background 120ms ease;
 }
 
@@ -161,6 +168,11 @@ p {
 .drop-zone.is-dragging {
   border-color: var(--purple-700);
   background: var(--purple-100);
+}
+
+.drop-zone:focus-visible {
+  outline: 3px solid var(--purple-700);
+  outline-offset: 3px;
 }
 
 .drop-zone.is-disabled {
@@ -175,7 +187,7 @@ p {
   gap: 0.85rem;
 }
 
-.drop-zone-copy span:last-child {
+.drop-zone-text {
   display: grid;
   gap: 0.25rem;
 }
@@ -185,15 +197,24 @@ p {
 }
 
 .drop-icon {
-  display: grid;
-  width: 2.6rem;
-  height: 2.6rem;
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
+  color: var(--purple-700);
+  font-size: 2.25rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.drop-zone-browse {
+  display: inline-flex;
+  min-height: 2.55rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.35rem;
   color: white;
-  background: var(--purple-700);
-  font-size: 1.45rem;
+  background: var(--purple-800);
+  font-weight: 700;
 }
 
 .button {
@@ -519,16 +540,111 @@ dd {
   background: var(--purple-50);
 }
 
-.chart-frame {
-  position: relative;
+.initial-baseline-guidance {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #b8b1bf;
+  border-radius: 0.4rem;
+  color: var(--text-secondary);
+  background: #f5f3f6;
+}
+
+.initial-baseline-guidance summary {
+  width: fit-content;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.initial-baseline-guidance p {
+  margin: 0.55rem 0 0;
+}
+
+.initial-baseline-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  margin-right: 0.45rem;
+  border: 1px solid #766e7d;
+  background: #ddd9e0;
+  vertical-align: -0.05rem;
+}
+
+.chart-section-heading,
+.expanded-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.chart-zoom-help {
+  margin: 0.4rem 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.chart-viewport {
+  width: 100%;
   max-width: 100%;
-  min-width: 0;
-  min-height: 23rem;
-  padding: 0.8rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: white;
+}
+
+.chart-surface {
+  position: relative;
+  width: 100%;
+  min-width: 100%;
+  min-height: 23rem;
+  padding: 0.8rem;
+  background: white;
+}
+
+.expanded-chart-overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(20 12 31 / 72%);
+}
+
+.expanded-chart-dialog {
+  display: grid;
+  width: min(96rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
   overflow: hidden;
+  border: 1px solid var(--purple-200);
+  border-radius: 0.65rem;
+  background: white;
+  box-shadow: 0 1.5rem 4rem rgb(20 12 31 / 35%);
+}
+
+.expanded-chart-header h3,
+.expanded-chart-summary {
+  margin: 0;
+}
+
+.expanded-chart-viewport {
+  min-height: 0;
+  overflow-y: hidden;
+}
+
+.expanded-chart-viewport .chart-surface {
+  height: min(70vh, 44rem);
 }
 
 .alert-summary {
@@ -652,10 +768,18 @@ tbody tr:last-child td {
   background: rgb(20 12 31 / 64%);
 }
 
+body.help-open {
+  overflow: hidden;
+}
+
 .help-dialog {
-  width: min(58rem, 100%);
-  max-height: min(48rem, calc(100vh - 2rem));
-  overflow: auto;
+  display: grid;
+  width: min(82vw, 82rem);
+  height: min(88vh, 56rem);
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   border: 1px solid var(--purple-200);
   border-radius: 0.65rem;
   background: white;
@@ -687,6 +811,11 @@ tbody tr:last-child td {
   background: transparent;
 }
 
+.help-dialog-header .button:hover:not(:disabled) {
+  color: white;
+  background: rgb(255 255 255 / 12%);
+}
+
 .dialog-kicker {
   margin: 0;
   color: var(--purple-200);
@@ -697,17 +826,29 @@ tbody tr:last-child td {
 }
 
 .help-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
   padding: 1rem 1.25rem 1.5rem;
+  scroll-behavior: smooth;
 }
 
 .help-dialog-body > section {
-  padding-top: 0.9rem;
+  margin-top: 1.15rem;
+  padding-top: 1.15rem;
   border-top: 1px solid var(--border);
+  scroll-margin-top: 1rem;
 }
 
 .help-dialog-body h3 {
   margin-bottom: 0.4rem;
   color: var(--purple-800);
+  font-size: 1.15rem;
+}
+
+.help-dialog-body h4 {
+  margin: 1rem 0 0.3rem;
+  color: var(--purple-900);
+  font-size: 0.98rem;
 }
 
 .help-dialog-body p,
@@ -722,6 +863,68 @@ tbody tr:last-child td {
   border-radius: 0.35rem;
   background: var(--purple-50);
   font-size: 0.82rem;
+}
+
+.help-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.85rem;
+  margin: 1rem 0 0.35rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.help-section-nav a {
+  color: var(--purple-700);
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-underline-offset: 0.16em;
+}
+
+.help-section-nav a:hover {
+  color: var(--purple-950);
+}
+
+.help-section-nav a:focus-visible,
+.help-troubleshooting summary:focus-visible {
+  outline: 3px solid var(--purple-700);
+  outline-offset: 3px;
+}
+
+.help-samples {
+  margin-top: 1.1rem;
+}
+
+.help-troubleshooting details {
+  margin-top: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--purple-50);
+}
+
+.help-troubleshooting summary {
+  padding: 0.75rem 0.85rem;
+  color: var(--purple-900);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.help-troubleshooting summary::marker {
+  color: var(--purple-700);
+}
+
+.help-troubleshooting details[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.help-troubleshooting details p {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.help-methodology-note p {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
 }
 
 .sample-grid {
@@ -826,9 +1029,34 @@ tbody tr:last-child td {
     width: 100%;
   }
 
-  .chart-frame {
+  .chart-surface {
     min-height: 18rem;
     padding: 0.4rem;
+  }
+
+  .chart-section-heading,
+  .expanded-chart-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chart-actions .button {
+    flex: 1 1 9rem;
+  }
+
+  .expanded-chart-overlay {
+    padding: 0;
+  }
+
+  .expanded-chart-dialog {
+    width: 100%;
+    max-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .expanded-chart-viewport .chart-surface {
+    height: min(68vh, 36rem);
   }
 
   .help-overlay {
@@ -838,6 +1066,7 @@ tbody tr:last-child td {
 
   .help-dialog {
     width: 100%;
+    height: 100vh;
     max-height: 100vh;
     border: 0;
     border-radius: 0;

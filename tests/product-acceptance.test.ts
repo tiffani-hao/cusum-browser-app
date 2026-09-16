@@ -52,9 +52,20 @@ describe("Product acceptance states", () => {
   it("provides accessible methodology, interpretation caution, privacy, and synthetic downloads", () => {
     const { root } = app();
     expect(root.querySelector("#help-dialog")?.getAttribute("role")).toBe("dialog");
-    expect(root.querySelector(".help-dialog-body")?.textContent).toContain("does not independently establish an outbreak");
     expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
-      "Your file is processed locally in this browser and is not uploaded to a server.",
+      "not confirmation of an outbreak or transmission cluster",
+    );
+    expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
+      "Uploaded data and analysis are processed locally within the browser.",
+    );
+    expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
+      "Display filters affect visualization only. They do not recalculate CUSUM or change the analysis settings.",
+    );
+    expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
+      "the HIV monthly preset uses a 36-month baseline",
+    );
+    expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
+      "Data remain visible in the shaded region",
     );
     const links = [...root.querySelectorAll<HTMLAnchorElement>(".sample-link")];
     expect(links).toHaveLength(5);
@@ -104,7 +115,7 @@ describe("Product acceptance states", () => {
     });
     const selecting = controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     expect(root.querySelector("#state-label")?.textContent).toBe("Reading file");
-    expect(root.querySelector<HTMLButtonElement>("#browse-files")?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>("#drop-zone")?.disabled).toBe(true);
     expect(root.querySelector("#drop-zone")?.getAttribute("aria-busy")).toBe("true");
     resolveImport(parsed());
     await selecting;
