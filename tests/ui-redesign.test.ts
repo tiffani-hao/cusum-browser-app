@@ -70,6 +70,44 @@ describe("compact workflow redesign", () => {
     expect(root.querySelectorAll(".step-label")).toHaveLength(0);
     expect(root.querySelector("main")?.textContent).not.toMatch(/\bStep [1-4]\b/);
     expect(root.querySelector("#privacy-note")?.textContent).toBe("Processed locally in your browser.");
+    expect(root.querySelector("#upload-heading")?.parentElement?.textContent).toContain(
+      "Select data file for analysis. For instructions, see Help.",
+    );
+  });
+
+  it("opens the existing Help dialog from the upload instructions", () => {
+    const { root } = setup();
+    root.querySelector<HTMLButtonElement>("#upload-help-link")!.click();
+    expect(root.querySelector<HTMLElement>("#help-overlay")?.hidden).toBe(false);
+  });
+
+  it("offers the existing synthetic samples in a compact download dialog", () => {
+    const { root } = setup();
+    const open = root.querySelector<HTMLButtonElement>("#open-sample-data")!;
+    const overlay = root.querySelector<HTMLElement>("#sample-data-overlay")!;
+    expect(open.textContent).toBe("Download Sample Data");
+    open.click();
+    expect(overlay.hidden).toBe(false);
+    expect(document.activeElement).toBe(root.querySelector("#close-sample-data"));
+    const links = [...root.querySelectorAll<HTMLAnchorElement>(".sample-download-link")];
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Basic monthly example",
+      "Daily example",
+      "Five-year daily example",
+      "Stratified monthly example",
+      "XLSX monthly example",
+    ]);
+    expect(links.map((link) => link.getAttribute("download"))).toEqual([
+      "basic-example.csv",
+      "daily-example.csv",
+      "five-year-daily-example.csv",
+      "stratified-monthly-example.csv",
+      "synthetic-example.xlsx",
+    ]);
+    expect(links.every((link) => link.href.includes("/sample-data/"))).toBe(true);
+    root.querySelector<HTMLButtonElement>("#close-sample-data")!.click();
+    expect(overlay.hidden).toBe(true);
+    expect(document.activeElement).toBe(open);
   });
 
   it("defines the dark-purple theme as reusable custom properties", () => {
@@ -82,48 +120,52 @@ describe("compact workflow redesign", () => {
 });
 
 describe("disease preset behavior", () => {
-  it("configures only HIV and Custom, with exact HIV values", () => {
+  it("configures only Default (HIV) and Custom, with the exact default values", () => {
     const { root, controller } = setup();
     const select = root.querySelector<HTMLSelectElement>("#disease-preset")!;
     expect(DISEASE_PRESETS).toHaveLength(1);
-    expect([...select.options].map((option) => option.textContent)).toEqual(["HIV", "Custom"]);
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Default (HIV)", "Custom"]);
     expect(select.value).toBe("hiv");
     expect(controller.getState().disease_preset).toBe("hiv");
     expect(DEFAULT_DISEASE_PRESET).toEqual({
       id: "hiv",
-      label: "HIV",
+      label: "Default (HIV)",
       options: {
         analysis_interval: "monthly",
         smoothing_window: 3,
         baseline_window: 36,
         k: 0.1,
-        threshold: 3,
+        threshold: 4,
         group_by_risk_group: false,
       },
     });
   });
 
-  it("switches manual edits to Custom without running analysis", async () => {
+  it("uses Custom only while preset-controlled values differ from Default (HIV)", async () => {
     const { root, controller, analyze } = setup();
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     const threshold = root.querySelector<HTMLInputElement>("#threshold")!;
-    threshold.value = "4";
+    threshold.value = "5";
     threshold.dispatchEvent(new Event("change", { bubbles: true }));
     expect(root.querySelector<HTMLSelectElement>("#disease-preset")?.value).toBe("custom");
-    expect(controller.getState().options.threshold).toBe(4);
+    expect(controller.getState().options.threshold).toBe(5);
     expect(analyze).not.toHaveBeenCalled();
+    threshold.value = "4";
+    threshold.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(root.querySelector<HTMLSelectElement>("#disease-preset")?.value).toBe("hiv");
+    expect(controller.getState().disease_preset).toBe("hiv");
   });
 
   it("keeps current values when Custom is selected and reapplies exact HIV values", async () => {
     const { root, controller, analyze } = setup();
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     const threshold = root.querySelector<HTMLInputElement>("#threshold")!;
-    threshold.value = "4";
+    threshold.value = "5";
     threshold.dispatchEvent(new Event("change", { bubbles: true }));
     const preset = root.querySelector<HTMLSelectElement>("#disease-preset")!;
     preset.value = "custom";
     preset.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(controller.getState().options.threshold).toBe(4);
+    expect(controller.getState().options.threshold).toBe(5);
     preset.value = "hiv";
     preset.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().options).toEqual(DEFAULT_DISEASE_PRESET.options);
@@ -135,7 +177,7 @@ describe("disease preset behavior", () => {
     await controller.selectFile(new File(["synthetic"], "selected.csv"));
     controller.runAnalysis();
     const threshold = root.querySelector<HTMLInputElement>("#threshold")!;
-    threshold.value = "4";
+    threshold.value = "5";
     threshold.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().disease_preset).toBe("custom");
     root.querySelector<HTMLButtonElement>("#restore-defaults")!.click();
@@ -146,18 +188,35 @@ describe("disease preset behavior", () => {
     expect(analyze).toHaveBeenCalledOnce();
   });
 
-  it("resets risk-group grouping when HIV is selected", async () => {
+  it("keeps Default (HIV) selected when stratification changes", async () => {
     const { root, controller } = setup(completedResult([]), true);
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    expect(controller.getState().options.group_by_risk_group).toBe(true);
+    expect(controller.getState().disease_preset).toBe("hiv");
+    controller.runAnalysis();
+    const grouping = root.querySelector<HTMLInputElement>("#group-risk")!;
+    grouping.checked = false;
+    grouping.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().disease_preset).toBe("hiv");
+    expect(controller.getState().options.group_by_risk_group).toBe(false);
+    expect(controller.getState().result_view.result_stale).toBe(true);
+    grouping.checked = true;
+    grouping.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().disease_preset).toBe("hiv");
+    expect(controller.getState().options.group_by_risk_group).toBe(true);
+  });
+
+  it("keeps Custom selected when stratification changes after a parameter edit", async () => {
+    const { root, controller } = setup(completedResult([]), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    const threshold = root.querySelector<HTMLInputElement>("#threshold")!;
+    threshold.value = "5";
+    threshold.dispatchEvent(new Event("change", { bubbles: true }));
     const grouping = root.querySelector<HTMLInputElement>("#group-risk")!;
     grouping.checked = true;
     grouping.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().disease_preset).toBe("custom");
-    const preset = root.querySelector<HTMLSelectElement>("#disease-preset")!;
-    preset.value = "hiv";
-    preset.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(grouping.checked).toBe(false);
-    expect(controller.getState().options.group_by_risk_group).toBe(false);
+    expect(controller.getState().options.group_by_risk_group).toBe(true);
   });
 });
 
@@ -192,7 +251,7 @@ describe("Results, alerts, and Help", () => {
     const container = root.querySelector<HTMLElement>("#alert-table-container")!;
     expect(container.querySelector(".alert-summary")?.textContent).toContain("Displayed alerts7");
     expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(container.querySelector("thead")?.textContent).toContain("Risk group");
+    expect(container.querySelector("thead")?.textContent).toContain("Strata");
     const showAll = [...container.querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.textContent?.startsWith("Show all alerts"))!;
     showAll.click();

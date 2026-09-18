@@ -44,7 +44,7 @@ export function validateOptions(value: unknown): ValidationResult<AnalysisOption
     }
   }
   if (typeof options.group_by_risk_group !== "boolean") {
-    issues.push(issue("invalid_group_by_risk_group", "Risk-group grouping must be a boolean.", "group_by_risk_group"));
+    issues.push(issue("invalid_group_by_risk_group", "Stratification selection must be a boolean.", "group_by_risk_group"));
   }
   if (issues.length > 0) return { valid: false, issues };
   return { valid: true, value: options as unknown as AnalysisOptions };

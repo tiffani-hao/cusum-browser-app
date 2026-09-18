@@ -5,7 +5,7 @@ export const DEFAULT_ANALYSIS_OPTIONS: Readonly<AnalysisOptions> = {
   smoothing_window: 3,
   baseline_window: 36,
   k: 0.1,
-  threshold: 3,
+  threshold: 4,
   group_by_risk_group: false,
 };
 

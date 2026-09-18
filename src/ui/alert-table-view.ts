@@ -84,9 +84,9 @@ function alertTable(
   tableWrap.className = "table-scroll alert-table-scroll";
   const table = document.createElement("table");
   const caption = document.createElement("caption");
-  caption.textContent = "Alert records, sorted by date descending, then area and risk group";
+  caption.textContent = "Alert records, sorted by date descending, then area and strata";
   table.append(caption);
-  const headers = ["Area", ...(includesRisk ? ["Risk group"] : []), "Date", "Count", "CUSUM"];
+  const headers = ["Area", ...(includesRisk ? ["Strata"] : []), "Date", "Count", "CUSUM"];
   const head = document.createElement("thead");
   const headerRow = document.createElement("tr");
   headers.forEach((label) => {

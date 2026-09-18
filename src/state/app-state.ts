@@ -72,7 +72,7 @@ export class AppStateStore {
       result_view: createInitialResultViewState(),
       options: {
         ...this.current.options,
-        group_by_risk_group: validation.has_risk_group && this.current.options.group_by_risk_group,
+        group_by_risk_group: validation.has_risk_group,
       },
       message: validation.valid ? "File imported and validated." : "File imported with blocking validation errors.",
     };

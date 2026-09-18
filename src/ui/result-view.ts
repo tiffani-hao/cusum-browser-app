@@ -366,7 +366,7 @@ function resultMarkup(): string {
           <select id="area-filter" multiple size="4"></select>
           <small>Use Ctrl/Command to select multiple.</small>
         </label>
-        <label class="filter-control">Risk groups shown
+        <label class="filter-control">Strata shown
           <select id="risk-filter" multiple size="4"></select>
           <small>Use Ctrl/Command to select multiple.</small>
         </label>

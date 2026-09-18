@@ -145,6 +145,30 @@ p {
   color: var(--text-secondary);
 }
 
+.inline-help-link {
+  border: 0;
+  padding: 0;
+  color: var(--purple-700);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.inline-help-link:hover {
+  color: var(--purple-950);
+}
+
+.upload-heading-copy {
+  display: grid;
+  justify-items: start;
+}
+
+.sample-data-trigger {
+  margin-top: 0.35rem;
+}
+
 .drop-zone {
   display: flex;
   width: 100%;
@@ -446,6 +470,12 @@ dd {
   min-height: 2.55rem;
   align-self: start;
   margin-top: 1.45rem;
+}
+
+.setting-toggle.is-disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .toggle-label input {
@@ -768,7 +798,8 @@ tbody tr:last-child td {
   background: rgb(20 12 31 / 64%);
 }
 
-body.help-open {
+body.help-open,
+body.sample-data-open {
   overflow: hidden;
 }
 
@@ -813,6 +844,49 @@ body.help-open {
 
 .help-dialog-header .button:hover:not(:disabled) {
   color: white;
+  background: rgb(255 255 255 / 12%);
+}
+
+.sample-data-dialog {
+  width: min(92vw, 34rem);
+  height: auto;
+  max-height: min(80vh, 42rem);
+}
+
+.sample-data-dialog-body {
+  padding-top: 1.1rem;
+}
+
+.sample-data-dialog-body > p {
+  margin-top: 0;
+}
+
+.sample-dialog-grid {
+  grid-template-columns: 1fr;
+  margin-bottom: 0;
+}
+
+.sample-download-link {
+  color: var(--purple-700);
+  font-weight: 800;
+}
+
+.sample-dialog-close {
+  display: inline-grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 0.35rem;
+  color: white;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.sample-dialog-close:hover {
   background: rgb(255 255 255 / 12%);
 }
 
@@ -1070,6 +1144,19 @@ body.help-open {
     max-height: 100vh;
     border: 0;
     border-radius: 0;
+  }
+
+  .sample-data-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .sample-data-dialog {
+    width: 100%;
+    height: auto;
+    max-height: min(80vh, 42rem);
+    border: 1px solid var(--purple-200);
+    border-radius: 0.65rem;
   }
 
   .help-dialog-header {

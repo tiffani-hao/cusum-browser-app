@@ -28,6 +28,7 @@ import { defaultCsvDownloader, defaultVisualizationDownloader } from "./export-v
 import type { CsvDownloader, VisualizationDownloader } from "./export-view";
 import { ResultView } from "./result-view";
 import { helpDialogMarkup, initializeHelpDialog } from "./help-view";
+import { initializeSampleDataDialog, sampleDataDialogMarkup } from "./sample-data-view";
 
 const MAX_DISPLAYED_ISSUES = 20;
 
@@ -71,7 +72,11 @@ function staticMarkup(): string {
     <main id="application-main" class="app-shell">
       <section class="panel upload-panel" aria-labelledby="upload-heading">
         <div class="section-heading">
-          <div><h2 id="upload-heading">Upload data</h2><p>Select one locally stored surveillance file.</p></div>
+          <div class="upload-heading-copy">
+            <h2 id="upload-heading">Upload data</h2>
+            <p>Select data file for analysis. For instructions, see <button id="upload-help-link" class="inline-help-link" type="button">Help</button>.</p>
+            <button id="open-sample-data" class="inline-help-link sample-data-trigger" type="button" aria-haspopup="dialog" aria-controls="sample-data-dialog">Download Sample Data</button>
+          </div>
           <button id="clear-data" class="button button-secondary" type="button" disabled>Clear Data</button>
         </div>
         <input id="file-input" class="visually-hidden" type="file" aria-label="Choose CSV or XLSX file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
@@ -119,7 +124,7 @@ function staticMarkup(): string {
               ${presetOptions}
               <option value="custom">Custom</option>
             </select>
-            <small>HIV is the current default preset for this tool.</small>
+            <small>Default (HIV) is the current default preset for this tool.</small>
           </label>
           <label>Analysis interval
             <select id="analysis-interval">
@@ -131,7 +136,7 @@ function staticMarkup(): string {
           </label>
           <label class="toggle-label setting-toggle">
             <input id="group-risk" type="checkbox" />
-            <span>Group by risk group<small>Analyze area and risk-group combinations separately.</small></span>
+            <span>Stratify Analysis by Stratification Variable<small id="stratification-availability">Unavailable until a usable stratification variable is detected.</small></span>
           </label>
         </div>
         <div class="settings-grid settings-grid-numeric">
@@ -149,7 +154,7 @@ function staticMarkup(): string {
           </label>
           <label>Alert threshold
             <input id="threshold" type="number" min="0" step="0.1" inputmode="decimal" />
-            <small>Alert when CUSUM is greater; default 3.</small>
+            <small>Alert when CUSUM is greater; default 4.</small>
           </label>
         </div>
         <div id="option-errors" class="field-errors" aria-live="polite"></div>
@@ -163,6 +168,7 @@ function staticMarkup(): string {
       </section>
     </main>
     ${helpDialogMarkup()}
+    ${sampleDataDialogMarkup()}
   `;
 }
 
@@ -172,6 +178,7 @@ export function createWorkflowApp(
 ): WorkflowController {
   root.innerHTML = staticMarkup();
   initializeHelpDialog(root);
+  initializeSampleDataDialog(root);
   const store = new AppStateStore();
   const resultView = new ResultView(
     requiredElement(root, "#results-section"),
@@ -198,6 +205,9 @@ export function createWorkflowApp(
   const threshold = requiredElement<HTMLInputElement>(root, "#threshold");
   const groupRisk = requiredElement<HTMLInputElement>(root, "#group-risk");
   const restoreDefaults = requiredElement<HTMLButtonElement>(root, "#restore-defaults");
+  const uploadHelpLink = requiredElement<HTMLButtonElement>(root, "#upload-help-link");
+  const headerHelpButton = requiredElement<HTMLButtonElement>(root, "#help-button");
+  const stratificationAvailability = requiredElement<HTMLElement>(root, "#stratification-availability");
 
   function syncOptionControls(
     options: AnalysisOptions,
@@ -223,12 +233,15 @@ export function createWorkflowApp(
     };
   }
 
-  function updateOptions(): void {
-    diseasePreset.value = "custom";
+  function updateParameterOptions(): void {
     const validation = validateOptions(readOptions());
     if (validation.valid) {
       optionIssues = [];
-      store.updateOptions(validation.value, "custom");
+      const matchesDefault = presetControlledOptionsMatch(
+        validation.value,
+        DEFAULT_DISEASE_PRESET.options,
+      );
+      store.updateOptions(validation.value, matchesDefault ? DEFAULT_DISEASE_PRESET.id : "custom");
     } else {
       optionIssues = validation.issues.map((issue) => issue.message);
       store.setDiseasePreset("custom");
@@ -237,10 +250,21 @@ export function createWorkflowApp(
     render();
   }
 
-  for (const control of [interval, smoothing, baseline, kValue, threshold, groupRisk]) {
-    control.addEventListener("change", updateOptions);
-    control.addEventListener("input", updateOptions);
+  function updateStratification(): void {
+    const validation = validateOptions(readOptions());
+    if (validation.valid) {
+      optionIssues = [];
+      store.updateOptions(validation.value, store.state.disease_preset);
+    }
+    render();
   }
+
+  for (const control of [interval, smoothing, baseline, kValue, threshold]) {
+    control.addEventListener("change", updateParameterOptions);
+    control.addEventListener("input", updateParameterOptions);
+  }
+  groupRisk.addEventListener("change", updateStratification);
+  uploadHelpLink.addEventListener("click", () => headerHelpButton.click());
 
   diseasePreset.addEventListener("change", () => {
     optionIssues = [];
@@ -371,10 +395,10 @@ export function createWorkflowApp(
     const settingsSection = requiredElement<HTMLElement>(root, "#settings-section");
     settingsSection.hidden = state.metadata === null;
     groupRisk.disabled = state.validation?.has_risk_group !== true;
-    if (groupRisk.disabled && groupRisk.checked) {
-      groupRisk.checked = false;
-      store.updateOptions({ ...state.options, group_by_risk_group: false });
-    }
+    groupRisk.closest<HTMLElement>(".setting-toggle")?.classList.toggle("is-disabled", groupRisk.disabled);
+    stratificationAvailability.textContent = groupRisk.disabled
+      ? "Unavailable because no usable stratification variable was detected."
+      : "Detected automatically; each area–stratum combination will be analyzed separately.";
     syncOptionControls(store.state.options, store.state.disease_preset);
     const optionErrorContainer = requiredElement<HTMLElement>(root, "#option-errors");
     optionErrorContainer.replaceChildren();
@@ -432,10 +456,18 @@ function renderValidation(root: HTMLElement, state: Readonly<AnalysisWorkflowSta
   const warningCount = state.parsing_issues.filter((issue) => issue.severity === "warning").length +
     validation.warnings.length;
   details.textContent = validation.valid
-    ? `${validation.valid_record_count.toLocaleString()} valid records · required columns found · risk_group ${validation.has_risk_group ? "found" : "not present"} · ${warningCount} warnings`
+    ? `${validation.valid_record_count.toLocaleString()} valid records · required columns found · stratification variable ${validation.has_risk_group ? "found" : "not present"} · ${warningCount} warnings`
     : `${validation.issues.length.toLocaleString()} blocking issues · ${validation.invalid_record_count.toLocaleString()} invalid records · ${warningCount} warnings`;
   container.className = `validation-card ${validation.valid ? "is-valid" : "is-invalid"}`;
   container.append(heading, details);
+}
+
+function presetControlledOptionsMatch(left: AnalysisOptions, right: AnalysisOptions): boolean {
+  return left.analysis_interval === right.analysis_interval &&
+    left.smoothing_window === right.smoothing_window &&
+    left.baseline_window === right.baseline_window &&
+    left.k === right.k &&
+    left.threshold === right.threshold;
 }
 
 function formatBytes(bytes: number): string {

@@ -50,7 +50,7 @@ export function renderProcessedTable(
 
   const fields: { label: string; value(record: ProcessedCusumRecord): string }[] = [
     { label: "Area", value: (record) => record.area },
-    ...(includesRisk ? [{ label: "Risk group", value: (record: ProcessedCusumRecord) => record.risk_group ?? "" }] : []),
+    ...(includesRisk ? [{ label: "Strata", value: (record: ProcessedCusumRecord) => record.risk_group ?? "" }] : []),
     { label: "Date", value: (record) => record.date },
     { label: "Count", value: (record) => String(record.count) },
     { label: "Normalized count", value: (record) => formatResultNumber(record.normalized_count) },

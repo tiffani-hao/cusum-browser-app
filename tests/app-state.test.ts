@@ -85,7 +85,7 @@ describe("in-memory application state", () => {
 
   it("marks a completed result stale when analytical settings change", () => {
     const store = completedStore();
-    store.updateOptions({ ...DEFAULT_ANALYSIS_OPTIONS, threshold: 4 });
+    store.updateOptions({ ...DEFAULT_ANALYSIS_OPTIONS, threshold: 5 });
     expect(store.state.result_view.result_stale).toBe(true);
     expect(store.state.analysis_result?.success).toBe(true);
     expect(store.state.status).toBe("input-valid");

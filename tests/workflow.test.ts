@@ -26,7 +26,7 @@ function result(columns: string[] = ["area", "date", "count"], rows: Record<stri
   };
 }
 
-function setup(parsed = result()) {
+function setup(parsed: FileParsingResult | ((file: File) => FileParsingResult) = result()) {
   document.body.innerHTML = '<div id="app"></div>';
   const root = document.querySelector<HTMLElement>("#app");
   if (root === null) throw new Error("Missing test root.");
@@ -41,10 +41,13 @@ function setup(parsed = result()) {
     "cusum-visualization-2026-09-15.html"
   );
   const controller = createWorkflowApp(root, {
-    importFile: vi.fn(async (file: File) => parsed.success ? {
-      ...parsed,
-      metadata: { ...parsed.metadata, filename: file.name },
-    } : parsed),
+    importFile: vi.fn(async (file: File) => {
+      const selected = typeof parsed === "function" ? parsed(file) : parsed;
+      return selected.success ? {
+        ...selected,
+        metadata: { ...selected.metadata, filename: file.name },
+      } : selected;
+    }),
     analyze,
     chart,
     download,
@@ -68,7 +71,7 @@ describe("Application workflow", () => {
     expect(root.querySelector<HTMLButtonElement>("#run-analysis")?.disabled).toBe(true);
   });
 
-  it("enables risk grouping only when the column exists", async () => {
+  it("enables stratification only when the optional column exists", async () => {
     const withoutRisk = setup();
     await withoutRisk.controller.selectFile(new File(["data"], "data.csv"));
     expect(withoutRisk.root.querySelector<HTMLInputElement>("#group-risk")?.disabled).toBe(true);
@@ -79,6 +82,39 @@ describe("Application workflow", () => {
     ));
     await withRisk.controller.selectFile(new File(["data"], "data.csv"));
     expect(withRisk.root.querySelector<HTMLInputElement>("#group-risk")?.disabled).toBe(false);
+    expect(withRisk.root.querySelector<HTMLInputElement>("#group-risk")?.checked).toBe(true);
+    expect(withRisk.controller.getState().disease_preset).toBe("hiv");
+    expect(withRisk.root.querySelector("#validation-summary")?.textContent).toContain(
+      "stratification variable found",
+    );
+  });
+
+  it("resets and restores automatic stratification as files change", async () => {
+    const plain = result();
+    const stratified = result(
+      ["area", "date", "count", "risk_group"],
+      [{ area: "A", date: "2024-01-01", count: "1", risk_group: "Stratum A" }],
+    );
+    const { root, controller } = setup((file) => file.name.startsWith("stratified") ? stratified : plain);
+    const control = root.querySelector<HTMLInputElement>("#group-risk")!;
+    const label = control.closest<HTMLElement>(".setting-toggle")!;
+
+    await controller.selectFile(new File(["data"], "stratified.csv"));
+    expect(control.disabled).toBe(false);
+    expect(control.checked).toBe(true);
+    expect(label.classList.contains("is-disabled")).toBe(false);
+    expect(controller.getState().disease_preset).toBe("hiv");
+
+    await controller.selectFile(new File(["data"], "plain.csv"));
+    expect(control.disabled).toBe(true);
+    expect(control.checked).toBe(false);
+    expect(label.classList.contains("is-disabled")).toBe(true);
+    expect(controller.getState().options.group_by_risk_group).toBe(false);
+
+    await controller.selectFile(new File(["data"], "stratified-next.csv"));
+    expect(control.disabled).toBe(false);
+    expect(control.checked).toBe(true);
+    expect(controller.getState().disease_preset).toBe("hiv");
   });
 
   it("runs the existing engine and renders the complete result through pagination", async () => {
@@ -184,7 +220,7 @@ describe("Application workflow", () => {
     controller.runAnalysis();
     const threshold = root.querySelector<HTMLInputElement>("#threshold");
     if (threshold === null) throw new Error("Missing threshold input.");
-    threshold.value = "4";
+    threshold.value = "5";
     threshold.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().result_view.result_stale).toBe(true);
     expect(root.querySelector<HTMLElement>("#stale-results")?.hidden).toBe(false);
@@ -266,7 +302,7 @@ describe("Application workflow", () => {
       date_start: "2024-01-01",
       date_end: "2024-02-01",
       series_names: ["B"],
-      threshold: 3,
+      threshold: 4,
       baseline_window: 36,
       analysis_interval: "monthly",
       image_data_url: "data:image/png;base64,c2FmZQ==",
@@ -310,7 +346,7 @@ describe("Application workflow", () => {
     expect(root.querySelectorAll("#processed-table-container tbody tr")).toHaveLength(50);
   });
 
-  it("shows risk-group controls and columns only for grouped results", async () => {
+  it("shows strata controls and columns only for stratified results", async () => {
     const withRisk = setup(result(
       ["area", "date", "count", "risk_group"],
       [
@@ -325,7 +361,7 @@ describe("Application workflow", () => {
     group.dispatchEvent(new Event("change", { bubbles: true }));
     withRisk.controller.runAnalysis();
     expect(withRisk.root.querySelector("#risk-filter")?.closest<HTMLElement>(".filter-control")?.hidden).toBe(false);
-    expect(withRisk.root.querySelector("#processed-table-container thead")?.textContent).toContain("Risk group");
+    expect(withRisk.root.querySelector("#processed-table-container thead")?.textContent).toContain("Strata");
   });
 
   it("destroys chart state on Clear Data", async () => {

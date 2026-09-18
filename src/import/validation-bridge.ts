@@ -5,6 +5,7 @@ import type {
   InputValidationSummary,
   ParsedRow,
 } from "./types";
+import { excelSerialDateToIso, numericDateSerial } from "./excel-serial-date";
 
 const REQUIRED_COLUMNS = ["area", "date", "count"] as const;
 
@@ -16,10 +17,27 @@ function normalizeCount(value: unknown): unknown {
   return Number(trimmed);
 }
 
+function normalizeImportedDate(value: unknown): { value: unknown; invalidSerial: boolean } {
+  const serial = numericDateSerial(value);
+  if (serial === undefined) return { value, invalidSerial: false };
+  const converted = excelSerialDateToIso(serial);
+  return converted === null
+    ? { value: "2000-01-01", invalidSerial: true }
+    : { value: converted, invalidSerial: false };
+}
+
+function isUsableStratum(value: unknown): boolean {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
 export function validateImportedTable(columns: string[], rows: ParsedRow[]): InputValidationSummary {
   const requiredColumnsFound = REQUIRED_COLUMNS.filter((column) => columns.includes(column));
   const missingRequiredColumns = REQUIRED_COLUMNS.filter((column) => !columns.includes(column));
-  const hasRiskGroup = columns.includes("risk_group");
+  const hasRiskGroupColumn = columns.includes("risk_group");
+  const invalidStrataRows = hasRiskGroupColumn
+    ? rows.flatMap((row, index) => isUsableStratum(row.risk_group) ? [] : [index + 2])
+    : [];
+  const hasRiskGroup = hasRiskGroupColumn && invalidStrataRows.length === 0;
   const warnings: FileParsingIssue[] = [];
   const issues: ValidationIssue[] = missingRequiredColumns.map((column) => ({
     code: "missing_required_column",
@@ -29,23 +47,56 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
   const validRecords: ValidatedInputRecord[] = [];
   let invalidRecordCount = 0;
 
+  if (!hasRiskGroupColumn && columns.length === 4) {
+    warnings.push({
+      code: "unrecognized_stratification_column",
+      message: "A fourth column was found, but it is not a recognized stratification variable and will not be used.",
+      scope: "header",
+      severity: "warning",
+      ...(columns[3] === undefined ? {} : { field: columns[3] }),
+    });
+  }
+
   if (missingRequiredColumns.length === 0) {
     rows.forEach((row, index) => {
+      const rowNumber = index + 2;
+      const normalizedDate = normalizeImportedDate(row.date);
+      const rowIssues: ValidationIssue[] = [];
+      if (normalizedDate.invalidSerial) {
+        rowIssues.push({
+          code: "invalid_excel_serial_date",
+          message: `Date must be a valid Excel 1900-system serial date or an ISO date in YYYY-MM-DD format. (row ${rowNumber})`,
+          field: "date",
+          record_index: rowNumber,
+        });
+      }
+      if (hasRiskGroupColumn && !isUsableStratum(row.risk_group)) {
+        rowIssues.push({
+          code: "invalid_stratification_value",
+          message: `The stratification variable must contain a nonempty stratum value. (row ${rowNumber})`,
+          field: "risk_group",
+          record_index: rowNumber,
+        });
+      }
       const candidate: RawTabularRecord = {
         area: row.area,
-        date: row.date,
+        date: normalizedDate.value,
         count: normalizeCount(row.count),
-        ...(hasRiskGroup ? { risk_group: row.risk_group } : {}),
+        ...(hasRiskGroupColumn ? { risk_group: row.risk_group } : {}),
       };
       const result = validateRecords([candidate]);
-      if (result.valid) validRecords.push(result.value[0] as ValidatedInputRecord);
-      else {
+      issues.push(...rowIssues);
+      if (result.valid && rowIssues.length === 0) {
+        validRecords.push(result.value[0] as ValidatedInputRecord);
+      } else {
         invalidRecordCount += 1;
-        issues.push(...result.issues.map((entry) => ({
-          ...entry,
-          record_index: index + 2,
-          message: `${entry.message} (row ${index + 2})`,
-        })));
+        if (!result.valid) {
+          issues.push(...result.issues.map((entry) => ({
+            ...entry,
+            record_index: rowNumber,
+            message: `${entry.message} (row ${rowNumber})`,
+          })));
+        }
       }
     });
   } else {
