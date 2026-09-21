@@ -1,3 +1,4 @@
+import { countDisplayedAlertEpisodes } from "../core";
 import type { AnalysisInterval, ProcessedCusumRecord } from "../core";
 import {
   buildCusumChartData,
@@ -28,7 +29,7 @@ export function renderChartView(
   const chartData = buildCusumChartData(records, threshold, baselineWindow, baselineReferenceRecords);
   const baselineKeys = initialBaselinePeriodRecordKeys(baselineReferenceRecords, baselineWindow);
   const seriesCount = chartData.datasets.filter((dataset) => dataset.threshold_line !== true).length;
-  const alertCount = records.filter((record) => record.is_alert).length;
+  const alertCount = countDisplayedAlertEpisodes(records, baselineReferenceRecords);
   const baselineCount = records.filter((record) =>
     isInitialBaselinePeriodRecord(record, baselineKeys)
   ).length;
@@ -44,7 +45,7 @@ export function renderChartView(
       ? `${seriesCount.toLocaleString()} series are selected. Select ${MAX_PRACTICAL_CHART_SERIES} or fewer chart series to render the chart; no records are sampled or discarded.`
     : `${seriesCount.toLocaleString()} displayed series from ${dates[0]} to ${dates.at(-1)}; ` +
       `${baselineCount.toLocaleString()} displayed records fall within the shaded initial baseline period; ` +
-      `all chart values remain visible; ${alertCount.toLocaleString()} displayed alerts; ` +
+      `all chart values remain visible; ${alertCount.toLocaleString()} displayed alert episodes; ` +
       `highest displayed CUSUM ${formatResultNumber(highest)}.`;
   const chartUnavailable = records.length === 0 || seriesCount > MAX_PRACTICAL_CHART_SERIES;
   elements.empty.hidden = !chartUnavailable;

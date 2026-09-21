@@ -33,21 +33,33 @@ function isUsableStratum(value: unknown): boolean {
 export function validateImportedTable(columns: string[], rows: ParsedRow[]): InputValidationSummary {
   const requiredColumnsFound = REQUIRED_COLUMNS.filter((column) => columns.includes(column));
   const missingRequiredColumns = REQUIRED_COLUMNS.filter((column) => !columns.includes(column));
-  const hasRiskGroupColumn = columns.includes("risk_group");
-  const invalidStrataRows = hasRiskGroupColumn
-    ? rows.flatMap((row, index) => isUsableStratum(row.risk_group) ? [] : [index + 2])
-    : [];
-  const hasRiskGroup = hasRiskGroupColumn && invalidStrataRows.length === 0;
+  const hasStrataColumn = columns.includes("strata");
+  const hasLegacyStrataColumn = columns.includes("risk_group");
+  const hasConflictingStrataColumns = hasStrataColumn && hasLegacyStrataColumn;
+  const stratificationColumn = hasConflictingStrataColumns
+    ? undefined
+    : hasStrataColumn ? "strata" : hasLegacyStrataColumn ? "risk_group" : undefined;
+  const invalidStrataRows = stratificationColumn === undefined
+    ? []
+    : rows.flatMap((row, index) => isUsableStratum(row[stratificationColumn]) ? [] : [index + 2]);
+  const hasRiskGroup = stratificationColumn !== undefined && invalidStrataRows.length === 0;
   const warnings: FileParsingIssue[] = [];
-  const issues: ValidationIssue[] = missingRequiredColumns.map((column) => ({
-    code: "missing_required_column",
-    message: `Required column "${column}" was not found.`,
-    field: column,
-  }));
+  const issues: ValidationIssue[] = [
+    ...missingRequiredColumns.map((column) => ({
+      code: "missing_required_column",
+      message: `Required column "${column}" was not found.`,
+      field: column,
+    })),
+    ...(hasConflictingStrataColumns ? [{
+      code: "duplicate_stratification_column",
+      message: "Provide only one stratification variable column.",
+      field: "strata",
+    }] : []),
+  ];
   const validRecords: ValidatedInputRecord[] = [];
   let invalidRecordCount = 0;
 
-  if (!hasRiskGroupColumn && columns.length === 4) {
+  if (stratificationColumn === undefined && !hasConflictingStrataColumns && columns.length === 4) {
     warnings.push({
       code: "unrecognized_stratification_column",
       message: "A fourth column was found, but it is not a recognized stratification variable and will not be used.",
@@ -70,11 +82,12 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
           record_index: rowNumber,
         });
       }
-      if (hasRiskGroupColumn && !isUsableStratum(row.risk_group)) {
+      const stratum = stratificationColumn === undefined ? undefined : row[stratificationColumn];
+      if (stratificationColumn !== undefined && !isUsableStratum(stratum)) {
         rowIssues.push({
           code: "invalid_stratification_value",
           message: `The stratification variable must contain a nonempty stratum value. (row ${rowNumber})`,
-          field: "risk_group",
+          field: "strata",
           record_index: rowNumber,
         });
       }
@@ -82,7 +95,7 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
         area: row.area,
         date: normalizedDate.value,
         count: normalizeCount(row.count),
-        ...(hasRiskGroupColumn ? { risk_group: row.risk_group } : {}),
+        ...(stratificationColumn === undefined ? {} : { risk_group: stratum }),
       };
       const result = validateRecords([candidate]);
       issues.push(...rowIssues);

@@ -788,6 +788,15 @@ tbody tr:last-child td {
   border-left: 4px solid var(--alert);
 }
 
+.alert-history-toggle {
+  width: fit-content;
+  margin-bottom: 0.75rem;
+}
+
+.active-alert-episode td:first-child {
+  border-left: 4px solid var(--alert);
+}
+
 .help-overlay {
   position: fixed;
   z-index: 1000;

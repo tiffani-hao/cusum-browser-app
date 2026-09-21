@@ -61,6 +61,16 @@ export interface ProcessedCusumRecord {
   is_alert: boolean;
 }
 
+export interface AlertEpisode {
+  area: string;
+  risk_group?: string;
+  start_date: string;
+  end_date: string;
+  periods: number;
+  total_cases: number;
+  is_active: boolean;
+}
+
 export interface AnalysisSummary {
   input_row_count: number;
   processed_row_count: number;
@@ -74,6 +84,7 @@ export interface AnalysisSummary {
   threshold: number;
   areas_included: number;
   risk_groups_included: string[];
+  /** Count of continuous above-threshold episodes across all independent series. */
   alerts_detected: number;
 }
 

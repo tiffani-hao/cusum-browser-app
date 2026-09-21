@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { analyzeCusum } from "../src/core";
+import { analyzeCusum, identifyAlertEpisodes } from "../src/core";
 import { DEFAULT_DISEASE_PRESET } from "../src/config";
 import { parseCsvText, validateImportedTable } from "../src/import";
 
@@ -8,27 +8,27 @@ interface SampleRecord {
   area: string;
   date: string;
   count: number;
-  riskGroup: string;
+  stratum: string;
 }
 
-describe("committed synthetic risk-group sample", () => {
+describe("committed synthetic strata sample", () => {
   const text = readFileSync(
-    new URL("../sample-data/risk-group-example.csv", import.meta.url),
+    new URL("../sample-data/strata-example.csv", import.meta.url),
     "utf8",
   );
   const lines = text.trimEnd().split(/\r?\n/);
   const records: SampleRecord[] = lines.slice(1).map((line) => {
-    const [area, date, count, riskGroup] = line.split(",");
+    const [area, date, count, stratum] = line.split(",");
     return {
       area: area ?? "",
       date: date ?? "",
       count: Number(count),
-      riskGroup: riskGroup ?? "",
+      stratum: stratum ?? "",
     };
   });
 
   it("has the exact schema, dimensions, and monthly date range", () => {
-    expect(lines[0]).toBe("area,date,count,risk_group");
+    expect(lines[0]).toBe("area,date,count,strata");
     expect(records).toHaveLength(1_008);
     expect([...new Set(records.map((record) => record.area))]).toEqual([
       "Area A",
@@ -36,7 +36,7 @@ describe("committed synthetic risk-group sample", () => {
       "Area C",
       "Area D",
     ]);
-    expect([...new Set(records.map((record) => record.riskGroup))]).toEqual([
+    expect([...new Set(records.map((record) => record.stratum))]).toEqual([
       "Group 1",
       "Group 2",
       "Group 3",
@@ -51,11 +51,11 @@ describe("committed synthetic risk-group sample", () => {
     for (const record of records) {
       expect(record.area).not.toBe("");
       expect(record.date).not.toBe("");
-      expect(record.riskGroup).not.toBe("");
+      expect(record.stratum).not.toBe("");
       expect(Number.isFinite(record.count)).toBe(true);
       expect(Number.isInteger(record.count)).toBe(true);
       expect(record.count).toBeGreaterThanOrEqual(0);
-      const series = `${record.area}\u0000${record.riskGroup}`;
+      const series = `${record.area}\u0000${record.stratum}`;
       const dates = combinations.get(series) ?? new Set<string>();
       expect(dates.has(record.date)).toBe(false);
       dates.add(record.date);
@@ -69,9 +69,9 @@ describe("committed synthetic risk-group sample", () => {
     }
   });
 
-  it("is sorted deterministically by area, risk group, and date", () => {
+  it("is sorted deterministically by area, strata, and date", () => {
     const keys = records.map((record) =>
-      `${record.area}\u0000${record.riskGroup}\u0000${record.date}`
+      `${record.area}\u0000${record.stratum}\u0000${record.date}`
     );
     expect(keys).toEqual([...keys].sort((left, right) => left.localeCompare(right)));
   });
@@ -91,6 +91,8 @@ describe("committed synthetic risk-group sample", () => {
     expect(result.summary.independent_series_count).toBe(12);
     expect(result.summary.alert_count).toBeGreaterThan(0);
     expect(result.summary.alert_count).toBeLessThan(result.summary.processed_row_count);
+    expect(result.summary.alert_count).toBe(identifyAlertEpisodes(result.records).length);
+    expect(result.summary.alerts_detected).toBe(result.summary.alert_count);
     const alertSeries = new Set(
       result.records
         .filter((record) => record.is_alert)

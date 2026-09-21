@@ -81,17 +81,28 @@ describe("initial baseline-period presentation", () => {
       record("Area A", `2024-${String(month).padStart(2, "0")}-01`, month, undefined, true)
     );
     const container = document.createElement("div");
+    const episodes = [{
+        area: "Area A",
+        start_date: "2024-01-01",
+        end_date: "2024-04-01",
+        periods: 4,
+        total_cases: 10,
+        is_active: true,
+      }];
     renderAlertTable(
       container,
-      records,
+      episodes,
+      episodes,
       1,
       25,
       true,
-      { setPage: vi.fn(), setExpanded: vi.fn() },
+      false,
+      { setPage: vi.fn(), setExpanded: vi.fn(), setShowInactive: vi.fn() },
     );
 
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
     expect(container.textContent).toContain("2024-01-01");
+    expect(records.every((item) => item.is_alert)).toBe(true);
   });
 });
 

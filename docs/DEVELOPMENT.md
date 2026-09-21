@@ -40,7 +40,7 @@ Import safeguards are defined as constants:
 
 Papa Parse reads CSV text, including quoted commas and embedded newlines. A UTF-8 byte-order mark is removed from the first header. `read-excel-file` reads an XLSX `ArrayBuffer`; the first worksheet is selected. Formula expressions are not evaluated, and stored cell values are treated as data. Macro-enabled file extensions are not accepted.
 
-Both parsers preserve source headers, reject empty or duplicate names, ignore completely blank trailing rows, and retain partially populated rows for validation. Import then recognizes the required `area`, `date`, and `count` columns and the optional `risk_group` column. Numeric text is converted only for the known `count` field before records enter the analytical validator.
+Both parsers preserve source headers, reject empty or duplicate names, ignore completely blank trailing rows, and retain partially populated rows for validation. Import then recognizes the required `area`, `date`, and `count` columns and the optional `strata` column. Numeric text is converted only for the known `count` field before records enter the analytical validator.
 
 Validation feedback distinguishes file, header, row, and option issues. Row-level messages expose only a row number, field name, and general reason. Analysis remains unavailable while blocking issues exist.
 
@@ -52,18 +52,18 @@ Selecting a new file removes the preceding file and result state before parsing 
 
 Analysis settings and display filters have separate behavior:
 
-- Changing interval, smoothing window, baseline window, K, threshold, risk-group grouping, or preset marks a completed result stale. The user must run analysis again before viewing current results or exporting them.
-- Area, risk-group, alert-only, date-range, series, and pagination controls operate on the existing completed result. They never call `analyzeCusum` or change analytical values.
+- Changing interval, smoothing window, baseline window, K, threshold, stratification, or preset marks a completed result stale. The user must run analysis again before viewing current results or exporting them.
+- Area, strata, alert-only, date-range, series, and pagination controls operate on the existing completed result. They never call `analyzeCusum` or change analytical values.
 
 Restore Defaults returns the settings to the HIV preset without clearing the selected file or running analysis.
 
 ## Results and export
 
-Completed analysis provides four summary metrics: input rows, processed rows, alerts, and maximum CUSUM. Chart.js draws one line per independent series, using area names or `Area — Risk group` labels, plus one dashed threshold line. Alert point styling uses the engine's existing `is_alert` value.
+Completed analysis provides four summary metrics: input rows, processed rows, alert episodes, and maximum CUSUM. Chart.js draws one line per independent series, using area names or `Area — Strata` labels, plus one dashed threshold line. Alert point styling uses the engine's existing `is_alert` value.
 
 Display filters are derived from the completed result and apply immediately to the chart, alert view, and processed table. Chart-series selection is separate from record filtering. If more than 20 series are selected, the chart pauses and asks for a smaller explicit selection; records are never sampled or silently hidden.
 
-The alert view is ordered by date descending and starts with a compact summary and five-row preview. The processed table displays area, optional risk group, date, count, normalized count, CUSUM, threshold, and text alert status. Smoothing and baseline fields remain in processed records and exports. Pagination supports 25, 50, or 100 rows per page, and filter changes return tables to page 1.
+The alert view is ordered by date descending. Its four cards always summarize all alert episodes in the completed analysis; display filters and the inactive-alert toggle affect only the episode table. The processed table displays area, optional strata, date, count, normalized count, CUSUM, threshold, and text alert status. Smoothing and baseline fields remain in processed records and exports. Pagination supports 25, 50, or 100 rows per page, and filter changes return tables to page 1.
 
 Local CSV export supports all processed results, the current filtered results, and alerts in the current filtered result. It preserves full analytical precision and does not export raw uploaded rows. Download handling uses a temporary `Blob` URL and revokes it after use.
 

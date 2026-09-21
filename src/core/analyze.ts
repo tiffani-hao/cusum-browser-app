@@ -1,4 +1,5 @@
 import { aggregateDuplicates, standardizeRecords } from "./aggregation";
+import { identifyAlertEpisodes } from "./alert-episodes";
 import { calculateSeries } from "./cusum";
 import { fillMissingPeriods } from "./missing-periods";
 import type {
@@ -33,7 +34,7 @@ export function analyzeCusum(records: unknown, options: unknown): AnalysisResult
   const processed: ProcessedCusumRecord[] = [];
   for (const group of groups.values()) processed.push(...calculateSeries(group, validOptions));
   const riskGroups = [...new Set(processed.flatMap((record) => record.risk_group === undefined ? [] : [record.risk_group]))].sort();
-  const alertCount = processed.filter((record) => record.is_alert).length;
+  const alertEpisodeCount = identifyAlertEpisodes(processed).length;
   return {
     success: true,
     records: processed,
@@ -41,7 +42,7 @@ export function analyzeCusum(records: unknown, options: unknown): AnalysisResult
       input_row_count: validated.length,
       processed_row_count: processed.length,
       independent_series_count: groups.size,
-      alert_count: alertCount,
+      alert_count: alertEpisodeCount,
       maximum_cusum: processed.reduce((maximum, record) => Math.max(maximum, record.cusum), 0),
       analysis_interval: validOptions.analysis_interval,
       smoothing_window: validOptions.smoothing_window,
@@ -50,7 +51,7 @@ export function analyzeCusum(records: unknown, options: unknown): AnalysisResult
       threshold: validOptions.threshold,
       areas_included: new Set(processed.map((record) => record.area)).size,
       risk_groups_included: riskGroups,
-      alerts_detected: alertCount,
+      alerts_detected: alertEpisodeCount,
     },
   };
 }

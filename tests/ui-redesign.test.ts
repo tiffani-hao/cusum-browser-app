@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { identifyAlertEpisodes } from "../src/core";
 import type { AnalysisResult, ProcessedCusumRecord } from "../src/core";
 import {
   DEFAULT_DISEASE_PRESET,
@@ -13,10 +14,10 @@ import { createWorkflowApp } from "../src/ui/workflow-app";
 
 function parsed(withRiskGroup = false): FileParsingResult {
   const columns = withRiskGroup
-    ? ["area", "date", "count", "risk_group"]
+    ? ["area", "date", "count", "strata"]
     : ["area", "date", "count"];
   const rows = withRiskGroup
-    ? [{ area: "Area A", date: "2024-01-01", count: "1", risk_group: "Group 1" }]
+    ? [{ area: "Area A", date: "2024-01-01", count: "1", strata: "Group 1" }]
     : [{ area: "Area A", date: "2024-01-01", count: "1" }];
   return {
     success: true,
@@ -79,6 +80,26 @@ describe("compact workflow redesign", () => {
     const { root } = setup();
     root.querySelector<HTMLButtonElement>("#upload-help-link")!.click();
     expect(root.querySelector<HTMLElement>("#help-overlay")?.hidden).toBe(false);
+  });
+
+  it("shows the canonical strata name for a legacy compatibility header", async () => {
+    const legacy = parsed(true);
+    if (!legacy.success) throw new Error("Expected parsed fixture");
+    legacy.metadata.columns = ["area", "date", "count", "risk_group"];
+    legacy.table.columns = ["area", "date", "count", "risk_group"];
+    legacy.table.rows = [{ area: "Area A", date: "2024-01-01", count: "1", risk_group: "Group 1" }];
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    const controller = createWorkflowApp(root, {
+      importFile: vi.fn(async () => legacy),
+      analyze: vi.fn(() => completedResult([])),
+      chart: { render: vi.fn(), clear: vi.fn() },
+      download: vi.fn(() => "neutral.csv"),
+    });
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    const summary = root.querySelector("#file-summary")?.textContent ?? "";
+    expect(summary).toContain("Detected columnsarea, date, count, strata");
+    expect(summary).not.toContain("risk_group");
   });
 
   it("offers the existing synthetic samples in a compact download dialog", () => {
@@ -222,13 +243,18 @@ describe("disease preset behavior", () => {
 
 describe("Results, alerts, and Help", () => {
   it("shows four approved KPI cards without duplicated settings", async () => {
-    const { root, controller } = setup(completedResult([record(1, true)]));
+    const records = [
+      { ...record(1, true), area: "Area A", date: "2024-01-01" },
+      { ...record(2, true), area: "Area A", date: "2024-02-01" },
+    ];
+    const { root, controller } = setup(completedResult(records));
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     controller.runAnalysis();
     expect(root.querySelectorAll("#analysis-summary > div")).toHaveLength(4);
     expect(root.querySelector("#analysis-summary")?.textContent).not.toContain("Independent series");
     expect(root.textContent).not.toContain("Active analytical settings");
     expect(root.querySelector("#active-settings")).toBeNull();
+    expect(root.querySelector("#analysis-summary")?.textContent).toContain("Alerts1");
   });
 
   it("uses a compact no-alert state without rendering a table", async () => {
@@ -236,30 +262,115 @@ describe("Results, alerts, and Help", () => {
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     controller.runAnalysis();
     const alerts = root.querySelector<HTMLElement>("#alert-table-container")!;
-    expect(alerts.textContent).toContain("No alerts match the current display filters.");
+    expect(alerts.querySelector(".alert-summary")?.textContent).toBe(
+      "Total alert episodes0Currently active0Inactive0Series with alerts0",
+    );
+    expect(alerts.textContent).toContain("No alert episodes match the current display filters.");
     expect(alerts.querySelector("table")).toBeNull();
   });
 
-  it("summarizes alerts, previews five, and expands and collapses", async () => {
-    const alerts = Array.from({ length: 10 }, (_, index) => ({
-      ...record(index + 1, index >= 3, "Group 1"),
-      area: "Area A",
-    }));
-    const { root, controller } = setup(completedResult(alerts));
+  it("summarizes active alert episodes, previews five, and expands and collapses", async () => {
+    const records = Array.from({ length: 6 }, (_, index) => [
+      { ...record(1, false, "Group 1"), area: `Area ${index + 1}`, date: "2024-01-01" },
+      { ...record(2, true, "Group 1"), area: `Area ${index + 1}`, date: "2024-02-01" },
+    ]).flat();
+    const { root, controller } = setup(completedResult(records));
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     controller.runAnalysis();
     const container = root.querySelector<HTMLElement>("#alert-table-container")!;
-    expect(container.querySelector(".alert-summary")?.textContent).toContain("Displayed alerts7");
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(
+      "Total alert episodes6Currently active6Inactive0Series with alerts6",
+    );
     expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(container.querySelector("thead")?.textContent).toContain("Strata");
+    expect([...container.querySelectorAll("thead th")].map((header) => header.textContent)).toEqual([
+      "Area",
+      "Strata",
+      "Start Date",
+      "End Date",
+      "Periods",
+      "Total Cases",
+    ]);
     const showAll = [...container.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.textContent?.startsWith("Show all alerts"))!;
+      .find((button) => button.textContent?.startsWith("Show all alert episodes"))!;
     showAll.click();
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(7);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(6);
     const collapse = [...container.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.textContent === "Collapse alerts")!;
+      .find((button) => button.textContent === "Collapse alert episodes")!;
     collapse.click();
     expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
+  it("hides inactive episodes by default and reveals them without rerunning analysis", async () => {
+    const records = [
+      { ...record(1, false), area: "Area A", date: "2024-01-01", count: 1 },
+      { ...record(2, true), area: "Area A", date: "2024-02-01", count: 2 },
+      { ...record(3, false), area: "Area A", date: "2024-03-01", count: 3 },
+      { ...record(4, true), area: "Area A", date: "2024-04-01", count: 4 },
+    ];
+    const { root, controller, analyze } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const container = root.querySelector<HTMLElement>("#alert-table-container")!;
+    const completeSummary = "Total alert episodes2Currently active1Inactive1Series with alerts1";
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect([...container.querySelectorAll("tbody td")].map((cell) => cell.textContent)).toEqual([
+      "Area A", "—", "2024-04-01", "2024-04-01", "1", "4",
+    ]);
+    const showInactive = container.querySelector<HTMLInputElement>(".alert-history-toggle input")!;
+    expect(showInactive.checked).toBe(false);
+    showInactive.checked = true;
+    showInactive.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
+    expect(controller.getState().result_view.show_inactive_alerts).toBe(true);
+    expect(analyze).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the complete alert dashboard visible when every episode is inactive", async () => {
+    const records = [
+      { ...record(1, false), area: "Area A", date: "2024-01-01" },
+      { ...record(2, true), area: "Area A", date: "2024-02-01" },
+      { ...record(3, false), area: "Area A", date: "2024-03-01" },
+    ];
+    const { root, controller } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const container = root.querySelector<HTMLElement>("#alert-table-container")!;
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(
+      "Total alert episodes1Currently active0Inactive1Series with alerts1",
+    );
+    expect(container.querySelector("table")).toBeNull();
+    const showInactive = container.querySelector<HTMLInputElement>(".alert-history-toggle input")!;
+    showInactive.checked = true;
+    showInactive.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(
+      "Total alert episodes1Currently active0Inactive1Series with alerts1",
+    );
+  });
+
+  it("summarizes unique stratified series across all areas independently of display filters", async () => {
+    const records = [
+      { ...record(1, true, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, true, "Group 2"), area: "Area A", date: "2024-01-01" },
+      { ...record(3, true, "Group 1"), area: "Area B", date: "2024-01-01" },
+    ];
+    const { root, controller, analyze } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const container = root.querySelector<HTMLElement>("#alert-table-container")!;
+    const completeSummary = "Total alert episodes3Currently active3Inactive0Series with alerts3";
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
+    const areaFilter = root.querySelector<HTMLSelectElement>("#area-filter")!;
+    [...areaFilter.options].forEach((option) => { option.selected = option.value === "Area A"; });
+    areaFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    const strataFilter = root.querySelector<HTMLSelectElement>("#risk-filter")!;
+    [...strataFilter.options].forEach((option) => { option.selected = option.value === "Group 1"; });
+    strataFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(analyze).toHaveBeenCalledOnce();
   });
 
   it("opens and closes Help accessibly, handles Escape, and returns focus", () => {
@@ -340,9 +451,12 @@ describe("Results, alerts, and Help", () => {
     expect(root.querySelector('pre[aria-label="Basic CSV format"]')?.textContent).toBe(
       "area,date,count\nArea A,2024-01-01,5\nArea A,2024-02-01,7",
     );
-    expect(root.querySelector('pre[aria-label="Risk-group CSV format"]')?.textContent).toBe(
-      "area,date,count,risk_group\nArea A,2024-01-01,5,Group 1\nArea A,2024-02-01,7,Group 1",
+    expect(root.querySelector('pre[aria-label="Stratified CSV format"]')?.textContent).toBe(
+      "area,date,count,strata\nArea A,2024-01-01,5,Group 1\nArea A,2024-02-01,7,Group 1",
     );
+    expect(root.querySelector("#help-dialog")?.textContent?.toLowerCase()).not.toContain("risk group");
+    expect(root.querySelector<HTMLAnchorElement>('a[download="cusum-strata-example.csv"]')?.href)
+      .toContain("/sample-data/strata-example.csv");
     const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
     expect(css).toContain("width: min(82vw, 82rem)");
     expect(css).toContain("height: min(88vh, 56rem)");
@@ -359,7 +473,7 @@ function completedResult(records: ProcessedCusumRecord[]): AnalysisResult {
       input_row_count: records.length,
       processed_row_count: records.length,
       independent_series_count: new Set(records.map((item) => item.area)).size,
-      alert_count: records.filter((item) => item.is_alert).length,
+      alert_count: identifyAlertEpisodes(records).length,
       maximum_cusum: records.length === 0 ? 0 : Math.max(...records.map((item) => item.cusum)),
       analysis_interval: "monthly",
       smoothing_window: 3,
@@ -368,7 +482,7 @@ function completedResult(records: ProcessedCusumRecord[]): AnalysisResult {
       threshold: 3,
       areas_included: new Set(records.map((item) => item.area)).size,
       risk_groups_included: [...new Set(records.flatMap((item) => item.risk_group ?? []))],
-      alerts_detected: records.filter((item) => item.is_alert).length,
+      alerts_detected: identifyAlertEpisodes(records).length,
     },
   };
 }

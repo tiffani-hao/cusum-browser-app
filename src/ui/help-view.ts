@@ -18,10 +18,10 @@ const SAMPLE_DOWNLOADS = [
     description: "A larger synthetic daily file for exploring longer results.",
   },
   {
-    href: new URL("../../sample-data/risk-group-example.csv", import.meta.url).href,
-    filename: "cusum-risk-group-example.csv",
-    label: "Risk-group monthly example",
-    description: "A synthetic 1,008-record dataset covering four areas, three risk groups, and seven years of monthly observations.",
+    href: new URL("../../sample-data/strata-example.csv", import.meta.url).href,
+    filename: "cusum-strata-example.csv",
+    label: "Stratified monthly example",
+    description: "A synthetic 1,008-record dataset covering four areas, three strata, and seven years of monthly observations.",
   },
   {
     href: new URL("../../sample-data/synthetic-example.xlsx", import.meta.url).href,
@@ -86,17 +86,17 @@ export function helpDialogMarkup(): string {
               <li><code>area</code>: geographic or surveillance unit</li>
               <li><code>date</code>: observation date</li>
               <li><code>count</code>: number of observed events</li>
-              <li><code>risk_group</code> (optional): subgroup within an area</li>
+              <li><code>strata</code> (optional): stratification value within an area</li>
             </ul>
             <p><strong>Basic format:</strong></p>
             <pre aria-label="Basic CSV format">area,date,count
 Area A,2024-01-01,5
 Area A,2024-02-01,7</pre>
-            <p><strong>With risk groups:</strong></p>
-            <pre aria-label="Risk-group CSV format">area,date,count,risk_group
+            <p><strong>With strata:</strong></p>
+            <pre aria-label="Stratified CSV format">area,date,count,strata
 Area A,2024-01-01,5,Group 1
 Area A,2024-02-01,7,Group 1</pre>
-            <p>When <code>risk_group</code> is included, each area–risk-group combination is analyzed as a separate time series.</p>
+            <p>When <code>strata</code> is included, each area–strata combination is analyzed as a separate time series.</p>
             <p>The application validates the file before analysis. The original uploaded file is not modified.</p>
             <div class="help-samples" aria-labelledby="sample-heading">
               <h4 id="sample-heading">Synthetic sample files</h4>
@@ -137,7 +137,7 @@ Area A,2024-02-01,7,Group 1</pre>
 
           <section id="help-graph" tabindex="-1">
             <h3>Understanding the graph and alerts</h3>
-            <p>Each colored line represents one displayed time series, such as an area or an area–risk-group combination.</p>
+            <p>Each colored line represents one displayed time series, such as an area or an area–strata combination.</p>
             <ul>
               <li>The horizontal axis shows time.</li>
               <li>The vertical axis shows CUSUM.</li>
@@ -153,7 +153,7 @@ Area A,2024-02-01,7,Group 1</pre>
           <section id="help-filters" tabindex="-1">
             <h3>Display filters</h3>
             <p>Display filters affect visualization only. They do not recalculate CUSUM or change the analysis settings.</p>
-            <p>Users can filter displayed areas, risk groups, chart series, dates, and alerts.</p>
+            <p>Users can filter displayed areas, strata, chart series, dates, and alerts.</p>
             <p>For example, if 40 series were analyzed but only 5 are selected for display, all 40 were still analyzed.</p>
             <p>To change the CUSUM calculation itself, users must change the Analysis Settings and rerun the analysis.</p>
           </section>
@@ -187,7 +187,7 @@ Area A,2024-02-01,7,Group 1</pre>
             </details>
             <details>
               <summary>My graph has too many lines</summary>
-              <p>Use Display Filters to select specific areas, risk groups, or chart series. Hidden series remain part of the completed analysis.</p>
+              <p>Use Display Filters to select specific areas, strata, or chart series. Hidden series remain part of the completed analysis.</p>
             </details>
             <details>
               <summary>My dates look compressed</summary>

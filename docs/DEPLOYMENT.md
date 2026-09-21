@@ -52,7 +52,7 @@ Use synthetic data for acceptance testing:
 2. Import a valid CSV file and review its validation summary.
 3. Import a valid XLSX file and confirm the first worksheet is used.
 4. Run analysis and inspect KPI values, the CUSUM chart, and threshold line.
-5. Exercise area, risk-group when applicable, alert-only, date, and chart-series filters.
+5. Exercise area, strata when applicable, alert-only, date, and chart-series filters.
 6. Check the compact alert view and processed-result pagination.
 7. Download all-results, filtered-results, and alerts CSV files.
 8. Use Clear Data and confirm file and result state are removed.

@@ -18,7 +18,7 @@ const SAMPLE_DOWNLOADS = [
     description: "A larger CSV example covering five years of daily observations.",
   },
   {
-    href: new URL("../../sample-data/risk-group-example.csv", import.meta.url).href,
+    href: new URL("../../sample-data/strata-example.csv", import.meta.url).href,
     filename: "stratified-monthly-example.csv",
     label: "Stratified monthly example",
     description: "Monthly CSV data containing a stratification variable and multiple strata.",

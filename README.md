@@ -6,7 +6,7 @@ This repository contains a browser-based research prototype for detecting unusua
 
 - CSV and XLSX input with local validation
 - Daily, weekly, and monthly analysis intervals
-- Independent analysis by area, with optional risk-group grouping
+- Independent analysis by area, with optional stratification
 - Standard one-sided CUSUM with configurable analysis settings
 - Interactive CUSUM visualization, threshold line, and alert display
 - Display filters and paginated processed results
@@ -21,7 +21,7 @@ Input files require these columns:
 - `date`
 - `count`
 
-The optional `risk_group` column can define separate series within each area. See [Algorithm](docs/ALGORITHM.md) for data rules and calculation details.
+The optional `strata` column can define separate series within each area. See [Algorithm](docs/ALGORITHM.md) for data rules and calculation details.
 
 ## Run locally
 

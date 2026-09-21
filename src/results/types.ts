@@ -16,6 +16,7 @@ export interface ResultViewState {
   alert_page: number;
   alert_page_size: number;
   alerts_expanded: boolean;
+  show_inactive_alerts: boolean;
   result_stale: boolean;
   export_message: string;
 }
@@ -27,8 +28,8 @@ export interface SeriesOption {
   risk_group?: string;
 }
 
-export interface PaginatedRecords {
-  records: ProcessedCusumRecord[];
+export interface PaginatedRecords<T = ProcessedCusumRecord> {
+  records: T[];
   page: number;
   page_size: number;
   total_records: number;

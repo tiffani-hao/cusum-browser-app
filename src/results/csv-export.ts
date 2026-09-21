@@ -25,7 +25,7 @@ export function escapeCsvCell(value: string | number | boolean): string {
 export function serializeProcessedCsv(records: ProcessedCusumRecord[]): string {
   const includeRiskGroup = records.some((record) => record.risk_group !== undefined);
   const headers = includeRiskGroup
-    ? ["area", "risk_group", ...BASE_HEADERS.slice(1)]
+    ? ["area", "strata", ...BASE_HEADERS.slice(1)]
     : [...BASE_HEADERS];
   const lines = [headers.join(",")];
   for (const record of records) {
@@ -46,4 +46,3 @@ export function serializeProcessedCsv(records: ProcessedCusumRecord[]): string {
   }
   return `${lines.join("\r\n")}\r\n`;
 }
-

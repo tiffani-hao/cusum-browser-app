@@ -10,7 +10,7 @@ const AREAS = [
   { name: "Area D", baseline: 3 },
 ];
 
-const RISK_GROUPS = [
+const STRATA = [
   { name: "Group 1", baseline: 0 },
   { name: "Group 2", baseline: 2 },
   { name: "Group 3", baseline: 4 },
@@ -23,21 +23,21 @@ const MONTH_COUNT = 84;
 const SUSTAINED_INCREASES = [
   {
     area: "Area A",
-    riskGroup: "Group 1",
+    stratum: "Group 1",
     start: "2022-03-01",
     end: "2022-11-01",
     increase: 5,
   },
   {
     area: "Area B",
-    riskGroup: "Group 2",
+    stratum: "Group 2",
     start: "2023-09-01",
     end: "2024-05-01",
     increase: 6,
   },
   {
     area: "Area C",
-    riskGroup: "Group 3",
+    stratum: "Group 3",
     start: "2025-02-01",
     end: "2025-10-01",
     increase: 7,
@@ -50,44 +50,44 @@ function isoMonth(monthIndex) {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
-function syntheticCount(area, riskGroup, areaIndex, riskIndex, monthIndex, date) {
+function syntheticCount(area, stratum, areaIndex, stratumIndex, monthIndex, date) {
   // Area D provides stable comparison series at three distinct group baselines.
   if (area.name === "Area D") {
-    return area.baseline + riskGroup.baseline;
+    return area.baseline + stratum.baseline;
   }
 
   const month = monthIndex % 12;
   const yearIndex = Math.floor(monthIndex / 12);
   const seasonal = SEASONAL_VARIATION[
-    (month + areaIndex * 2 + riskIndex * 3) % SEASONAL_VARIATION.length
+    (month + areaIndex * 2 + stratumIndex * 3) % SEASONAL_VARIATION.length
   ];
-  const modestYearVariation = (yearIndex + areaIndex + riskIndex) % 3 === 0 ? 1 : 0;
+  const modestYearVariation = (yearIndex + areaIndex + stratumIndex) % 3 === 0 ? 1 : 0;
   const sustainedIncrease = SUSTAINED_INCREASES.find((pattern) =>
     pattern.area === area.name &&
-    pattern.riskGroup === riskGroup.name &&
+    pattern.stratum === stratum.name &&
     date >= pattern.start &&
     date <= pattern.end
   )?.increase ?? 0;
 
-  return area.baseline + riskGroup.baseline + seasonal +
+  return area.baseline + stratum.baseline + seasonal +
     modestYearVariation + sustainedIncrease;
 }
 
-export function generateRiskGroupExample() {
-  const rows = ["area,date,count,risk_group"];
+export function generateStrataExample() {
+  const rows = ["area,date,count,strata"];
   for (const [areaIndex, area] of AREAS.entries()) {
-    for (const [riskIndex, riskGroup] of RISK_GROUPS.entries()) {
+    for (const [stratumIndex, stratum] of STRATA.entries()) {
       for (let monthIndex = 0; monthIndex < MONTH_COUNT; monthIndex += 1) {
         const date = isoMonth(monthIndex);
         const count = syntheticCount(
           area,
-          riskGroup,
+          stratum,
           areaIndex,
-          riskIndex,
+          stratumIndex,
           monthIndex,
           date,
         );
-        rows.push(`${area.name},${date},${count},${riskGroup.name}`);
+        rows.push(`${area.name},${date},${count},${stratum.name}`);
       }
     }
   }
@@ -95,6 +95,6 @@ export function generateRiskGroupExample() {
 }
 
 const outputPath = fileURLToPath(
-  new URL("../sample-data/risk-group-example.csv", import.meta.url),
+  new URL("../sample-data/strata-example.csv", import.meta.url),
 );
-writeFileSync(outputPath, generateRiskGroupExample(), "utf8");
+writeFileSync(outputPath, generateStrataExample(), "utf8");

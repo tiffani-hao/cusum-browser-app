@@ -37,9 +37,9 @@ describe("processed-result CSV serialization", () => {
     expect(csv).toContain("0.123456789012345");
   });
 
-  it("includes risk_group only when present", () => {
+  it("uses the canonical strata header when stratified records are present", () => {
     expect(serializeProcessedCsv([{ ...record("A", 1), risk_group: "High" }]).split("\r\n")[0])
-      .toContain("area,risk_group,date");
+      .toContain("area,strata,date");
   });
 });
 

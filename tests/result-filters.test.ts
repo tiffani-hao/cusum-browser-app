@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ProcessedCusumRecord } from "../src/core";
+import type { AlertEpisode, ProcessedCusumRecord } from "../src/core";
 import {
   createDefaultDisplayFilters,
   filterChartRecords,
+  filterAlertEpisodes,
   filterProcessedRecords,
   independentSeries,
   seriesLabel,
@@ -71,6 +72,37 @@ describe("result selectors and display filters", () => {
     expect(filterChartRecords(records, filters)).toHaveLength(1);
     expect(filterProcessedRecords(records, filters)).toHaveLength(3);
   });
+
+  it("filters alert episodes by series fields and overlapping date range", () => {
+    const episodes: AlertEpisode[] = [
+      {
+        area: "A",
+        risk_group: "Low",
+        start_date: "2024-01-01",
+        end_date: "2024-03-01",
+        periods: 3,
+        total_cases: 8,
+        is_active: false,
+      },
+      {
+        area: "B",
+        risk_group: "High",
+        start_date: "2024-04-01",
+        end_date: "2024-04-01",
+        periods: 1,
+        total_cases: 2,
+        is_active: true,
+      },
+    ];
+    const filters = {
+      ...createDefaultDisplayFilters(records),
+      selected_areas: ["A"],
+      selected_risk_groups: ["Low"],
+      start_date: "2024-02-01",
+      end_date: "2024-02-28",
+    };
+    expect(filterAlertEpisodes(episodes, filters)).toEqual([episodes[0]]);
+  });
 });
 
 function makeRecord(area: string, date: string, isAlert: boolean, riskGroup?: string): ProcessedCusumRecord {
@@ -88,4 +120,3 @@ function makeRecord(area: string, date: string, isAlert: boolean, riskGroup?: st
     is_alert: isAlert,
   };
 }
-

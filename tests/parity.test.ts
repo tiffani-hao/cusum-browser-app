@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { analyzeCusum } from "../src/core";
+import { analyzeCusum, identifyAlertEpisodes } from "../src/core";
 import type { GoldenFixture, ProcessedCusumRecord } from "../src/core";
 
 const FIXTURE_DIRECTORY = fileURLToPath(new URL("../test-fixtures/expected/", import.meta.url));
@@ -54,7 +54,10 @@ describe("golden fixture parity", () => {
       });
       expect(result.summary.areas_included).toBe(fixture.summary.areas_included);
       expect(result.summary.risk_groups_included).toEqual(fixture.summary.risk_groups_included);
-      expect(result.summary.alerts_detected).toBe(fixture.summary.alerts_detected);
+      expect(fixture.summary.alerts_detected).toBe(
+        fixture.expected_records.filter((record) => record.is_alert).length,
+      );
+      expect(result.summary.alerts_detected).toBe(identifyAlertEpisodes(result.records).length);
       expect(result.summary.input_row_count).toBe(fixture.input_row_count);
       expect(result.summary.processed_row_count).toBe(fixture.processed_row_count);
     });

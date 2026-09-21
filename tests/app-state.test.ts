@@ -104,6 +104,16 @@ describe("in-memory application state", () => {
     expect(store.state.status).toBe("analysis-completed");
   });
 
+  it("toggles inactive alert episodes without marking results stale", () => {
+    const store = completedStore();
+    store.setAlertPage(3);
+    store.setShowInactiveAlerts(true);
+    expect(store.state.result_view.show_inactive_alerts).toBe(true);
+    expect(store.state.result_view.alert_page).toBe(1);
+    expect(store.state.result_view.result_stale).toBe(false);
+    expect(store.state.status).toBe("analysis-completed");
+  });
+
   it("resets filters and clearData removes all result-view state", () => {
     const store = completedStore();
     store.updateDisplayFilters({
@@ -117,6 +127,7 @@ describe("in-memory application state", () => {
     store.clearData();
     expect(store.state.result_view.filters.selected_areas).toEqual([]);
     expect(store.state.result_view.processed_page).toBe(1);
+    expect(store.state.result_view.show_inactive_alerts).toBe(false);
   });
 });
 

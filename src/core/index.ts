@@ -1,4 +1,9 @@
 export { analyzeCusum } from "./analyze";
+export {
+  countDisplayedAlertEpisodes,
+  identifyAlertEpisodes,
+  sortAlertEpisodes,
+} from "./alert-episodes";
 export { DEFAULT_ANALYSIS_OPTIONS } from "./constants";
 export {
   compareDates,

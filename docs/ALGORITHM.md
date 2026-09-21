@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The application analyzes surveillance counts over time and uses a standard one-sided cumulative sum (CUSUM) to identify sustained increases relative to a trailing baseline. Each reporting area is analyzed independently, optionally subdivided by risk group.
+The application analyzes surveillance counts over time and uses a standard one-sided cumulative sum (CUSUM) to identify sustained increases relative to a trailing baseline. Each reporting area is analyzed independently, optionally subdivided into strata.
 
 ## Required data
 
@@ -12,7 +12,7 @@ The application accepts UTF-8 CSV and XLSX files. Required columns are:
 - `date`: a valid ISO calendar date in `YYYY-MM-DD` form
 - `count`: a finite, nonnegative number
 
-The optional `risk_group` column can define separate CUSUM series within each area. Column names must match exactly. Empty or duplicate headers are rejected, while additional columns are retained during import but are not used by the analytical pipeline.
+The optional `strata` column can define separate CUSUM series within each area. Column names must match exactly. Empty or duplicate headers are rejected, while additional columns are retained during import but are not used by the analytical pipeline.
 
 Completely blank trailing rows are ignored. Partially populated rows remain in the imported table so validation can report their row numbers and affected fields without displaying complete records.
 
@@ -24,13 +24,13 @@ The selected analysis interval determines how input dates are standardized:
 - **Weekly:** each date is assigned to the Monday of its week.
 - **Monthly:** each date is assigned to the first day of its month.
 
-Date operations use UTC calendar logic. Processed records are ordered by area, risk group when enabled, and standardized date.
+Date operations use UTC calendar logic. Processed records are ordered by area, strata when enabled, and standardized date.
 
 ## Preprocessing
 
 Rows that share an independent series and standardized period are aggregated by summing their counts. Missing periods between the earliest and latest period in each series are then inserted with a count of zero.
 
-By default, each area is an independent series. When risk-group grouping is enabled, each area and risk-group combination is independent. CUSUM state never carries from one series into another.
+By default, each area is an independent series. When stratification is enabled, each area and strata combination is independent. CUSUM state never carries from one series into another.
 
 The order of operations is:
 
@@ -92,7 +92,7 @@ A CUSUM exactly equal to the threshold is not an alert. Analytical output retain
 
 ## Analysis settings and defaults
 
-Users can configure the analysis interval, smoothing window, baseline window, K, threshold, and risk-group grouping.
+Users can configure the analysis interval, smoothing window, baseline window, K, threshold, and stratification.
 
 The current default preset is **HIV**:
 
@@ -103,7 +103,7 @@ The current default preset is **HIV**:
 | Baseline window | 36 |
 | K | 0.1 |
 | Alert threshold | 3 |
-| Group by risk group | Disabled |
+| Stratify analysis by stratification variable | Disabled |
 
 These are application defaults, not universal recommendations for every HIV surveillance context. **Custom** preserves the current values and allows them to be edited. A preset populates analysis settings; it does not alter the CUSUM formula or run analysis automatically.
 

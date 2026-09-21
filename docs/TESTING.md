@@ -45,7 +45,7 @@ Together, the fixtures protect established behavior for:
 - Missing daily, weekly, and monthly periods
 - Early smoothing and baseline windows
 - First-period and zero-standard-deviation behavior
-- Multiple areas and optional risk-group grouping
+- Multiple areas and optional stratification
 - Independent CUSUM resets between series
 - Threshold equality as a non-alert and greater-than-threshold alerts
 

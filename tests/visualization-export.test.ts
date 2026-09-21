@@ -20,6 +20,7 @@ describe("offline visualization HTML export", () => {
     expect(html).toContain("Zoom in");
     expect(html).toContain("Reset zoom");
     expect(html).toContain("zoom controls work offline");
+    expect(html).toContain("Displayed alert episodes");
     expect(html).not.toMatch(/https?:\/\//i);
     expect(html).not.toMatch(/<script\b[^>]*\bsrc=/i);
     expect(html).not.toMatch(/src=["'](?!data:)/i);

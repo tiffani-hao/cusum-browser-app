@@ -1,22 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ProcessedCusumRecord } from "../src/core";
-import { paginateRecords, sortAlertRecords } from "../src/results";
+import { paginateRecords } from "../src/results";
 
 describe("result table data", () => {
-  it("sorts alerts by date descending, then area and risk group", () => {
-    const records = [
-      record("B", "2024-01-01", true),
-      record("A", "2024-01-02", true, "Z"),
-      record("A", "2024-01-02", true, "A"),
-      record("A", "2024-01-03", false),
-    ];
-    expect(sortAlertRecords(records).map((item) => `${item.date}/${item.area}/${item.risk_group ?? ""}`)).toEqual([
-      "2024-01-02/A/A",
-      "2024-01-02/A/Z",
-      "2024-01-01/B/",
-    ]);
-  });
-
   it("paginates without mutating the source records", () => {
     const records = Array.from({ length: 60 }, (_, index) => record("A", `2024-01-${index}`, false));
     const page = paginateRecords(records, 2, 25);
@@ -51,4 +37,3 @@ function record(area: string, date: string, alert: boolean, riskGroup?: string):
     is_alert: alert,
   };
 }
-

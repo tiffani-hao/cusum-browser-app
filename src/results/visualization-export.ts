@@ -66,7 +66,7 @@ export function serializeVisualizationHtml(snapshot: VisualizationSnapshot): str
       <div><dt>Displayed date range</dt><dd>${dateRange}</dd></div>
       <div><dt>Displayed series</dt><dd>${snapshot.series_names.length}</dd></div>
       <div><dt>Alert threshold</dt><dd>${escapeHtml(String(snapshot.threshold))}</dd></div>
-      <div><dt>Displayed alerts</dt><dd>${snapshot.alert_count}</dd></div>
+      <div><dt>Displayed alert episodes</dt><dd>${snapshot.alert_count}</dd></div>
     </dl>
     <h2>Series shown</h2>
     <ul>${seriesItems}</ul>

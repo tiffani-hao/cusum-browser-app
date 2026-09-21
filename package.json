@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "generate:risk-group-sample": "node scripts/generate-risk-group-example.mjs",
+    "generate:strata-sample": "node scripts/generate-strata-example.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

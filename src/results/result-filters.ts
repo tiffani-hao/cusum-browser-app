@@ -1,4 +1,4 @@
-import type { ProcessedCusumRecord } from "../core";
+import type { AlertEpisode, ProcessedCusumRecord } from "../core";
 import { independentSeries, seriesKey, uniqueAreas, uniqueRiskGroups } from "./result-selectors";
 import type { ResultDisplayFilters, ResultViewState } from "./types";
 
@@ -28,9 +28,24 @@ export function createInitialResultViewState(): ResultViewState {
     alert_page: 1,
     alert_page_size: 25,
     alerts_expanded: false,
+    show_inactive_alerts: false,
     result_stale: false,
     export_message: "",
   };
+}
+
+export function filterAlertEpisodes(
+  episodes: readonly AlertEpisode[],
+  filters: ResultDisplayFilters,
+): AlertEpisode[] {
+  const selectedAreas = new Set(filters.selected_areas);
+  const selectedRiskGroups = new Set(filters.selected_risk_groups);
+  return episodes.filter((episode) =>
+    selectedAreas.has(episode.area) &&
+    (episode.risk_group === undefined || selectedRiskGroups.has(episode.risk_group)) &&
+    (filters.start_date === "" || episode.end_date >= filters.start_date) &&
+    (filters.end_date === "" || episode.start_date <= filters.end_date)
+  );
 }
 
 export function createCompletedResultViewState(records: ProcessedCusumRecord[]): ResultViewState {

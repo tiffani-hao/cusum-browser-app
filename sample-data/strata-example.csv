@@ -1,4 +1,4 @@
-area,date,count,risk_group
+area,date,count,strata
 Area A,2019-01-01,3,Group 1
 Area A,2019-02-01,4,Group 1
 Area A,2019-03-01,3,Group 1

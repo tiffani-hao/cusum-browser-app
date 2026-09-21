@@ -57,7 +57,17 @@ describe("imported date and stratification validation", () => {
     expect(validation.has_risk_group).toBe(false);
   });
 
-  it("recognizes a populated compatibility column as the stratification variable", () => {
+  it("recognizes the canonical strata column and normalizes it for analysis", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count", "strata"],
+      [{ area: "Area A", date: "2024-01-01", count: 1, strata: "Stratum A" }],
+    );
+    expect(validation.valid).toBe(true);
+    expect(validation.has_risk_group).toBe(true);
+    expect(validation.valid_records[0]?.risk_group).toBe("Stratum A");
+  });
+
+  it("accepts the legacy compatibility header without exposing it in feedback", () => {
     const validation = validateImportedTable(
       ["area", "date", "count", "risk_group"],
       [{ area: "Area A", date: "2024-01-01", count: 1, risk_group: "Stratum A" }],
@@ -69,15 +79,30 @@ describe("imported date and stratification validation", () => {
 
   it("rejects an empty stratum and does not expose unusable stratification", () => {
     const validation = validateImportedTable(
-      ["area", "date", "count", "risk_group"],
-      [{ area: "Area A", date: "2024-01-01", count: 1, risk_group: " " }],
+      ["area", "date", "count", "strata"],
+      [{ area: "Area A", date: "2024-01-01", count: 1, strata: " " }],
     );
     expect(validation.valid).toBe(false);
     expect(validation.has_risk_group).toBe(false);
     expect(validation.issues).toContainEqual(expect.objectContaining({
       code: "invalid_stratification_value",
-      field: "risk_group",
+      field: "strata",
     }));
+  });
+
+  it("rejects two stratification columns using only canonical terminology", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count", "strata", "risk_group"],
+      [{ area: "Area A", date: "2024-01-01", count: 1, strata: "A", risk_group: "A" }],
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.issues).toContainEqual(expect.objectContaining({
+      code: "duplicate_stratification_column",
+      field: "strata",
+      message: "Provide only one stratification variable column.",
+    }));
+    expect(validation.issues.map((issue) => `${issue.field} ${issue.message}`).join(" "))
+      .not.toContain("risk_group");
   });
 
   it("warns about an unrecognized fourth column without enabling stratification", () => {

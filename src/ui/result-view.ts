@@ -1,6 +1,8 @@
 import type { AnalysisWorkflowState } from "../import";
+import { countDisplayedAlertEpisodes, identifyAlertEpisodes } from "../core";
 import {
   chartWidthForIntervals,
+  filterAlertEpisodes,
   filterProcessedRecords,
   filterSelectedSeries,
   formatResultNumber,
@@ -95,6 +97,11 @@ export class ResultView {
     this.renderFilters(state, disabled);
     const filtered = filterProcessedRecords(result.records, state.result_view.filters);
     const chartRecords = filterSelectedSeries(filtered, state.result_view.filters.selected_series);
+    const allAlertEpisodes = identifyAlertEpisodes(result.records);
+    const filteredAlertEpisodes = filterAlertEpisodes(
+      allAlertEpisodes,
+      state.result_view.filters,
+    );
     this.currentChartIntervalCount = new Set(chartRecords.map((record) => record.date)).size;
     this.updateChartWidth();
     requiredElement<HTMLElement>(this.root, "#filter-result-summary").textContent =
@@ -125,10 +132,12 @@ export class ResultView {
     }
     renderAlertTable(
       requiredElement(this.root, "#alert-table-container"),
-      filtered,
+      allAlertEpisodes,
+      filteredAlertEpisodes,
       state.result_view.alert_page,
       state.result_view.alert_page_size,
       state.result_view.alerts_expanded,
+      state.result_view.show_inactive_alerts,
       {
         setPage: (page) => {
           this.store.setAlertPage(page);
@@ -136,6 +145,10 @@ export class ResultView {
         },
         setExpanded: (expanded) => {
           this.store.setAlertsExpanded(expanded);
+          this.dependencies.requestRender();
+        },
+        setShowInactive: (showInactive) => {
+          this.store.setShowInactiveAlerts(showInactive);
           this.dependencies.requestRender();
         },
       },
@@ -263,7 +276,7 @@ export class ResultView {
         date_end: dates.at(-1)!,
         series_names: independentSeries(chartRecords).map((series) => series.label),
         threshold: result.summary.threshold,
-        alert_count: chartRecords.filter((record) => record.is_alert).length,
+        alert_count: countDisplayedAlertEpisodes(chartRecords, result.records),
         baseline_window: result.summary.baseline_window,
         analysis_interval: result.summary.analysis_interval,
       };
@@ -422,7 +435,7 @@ function resultMarkup(): string {
       <div class="button-row">
         <button id="export-all" class="button button-secondary export-button" type="button">Export all processed results</button>
         <button id="export-filtered" class="button button-secondary export-button" type="button">Export filtered processed results</button>
-        <button id="export-alerts" class="button button-secondary export-button" type="button">Export alerts only</button>
+        <button id="export-alerts" class="button button-secondary export-button" type="button">Export above-threshold periods</button>
         <button id="export-visualization" class="button button-secondary export-button" type="button">Export visualization (HTML)</button>
       </div>
       <p id="export-status" role="status" aria-live="polite"></p>

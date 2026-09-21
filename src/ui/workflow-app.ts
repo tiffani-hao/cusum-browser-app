@@ -431,7 +431,7 @@ function renderFileSummary(root: HTMLElement, state: Readonly<AnalysisWorkflowSt
     ["File type", state.metadata.extension.toUpperCase()],
     ["File size", formatBytes(state.metadata.size_bytes)],
     ["Raw rows", state.metadata.parsed_row_count.toLocaleString()],
-    ["Detected columns", state.metadata.columns.join(", ")],
+    ["Detected columns", state.metadata.columns.map(displayColumnName).join(", ")],
   ];
   if (state.metadata.worksheet_name !== undefined) entries.push(["Worksheet", state.metadata.worksheet_name]);
   for (const [term, value] of entries) {
@@ -443,6 +443,10 @@ function renderFileSummary(root: HTMLElement, state: Readonly<AnalysisWorkflowSt
     wrapper.append(dt, dd);
     list.append(wrapper);
   }
+}
+
+function displayColumnName(column: string): string {
+  return column === "risk_group" ? "strata" : column;
 }
 
 function renderValidation(root: HTMLElement, state: Readonly<AnalysisWorkflowState>): void {

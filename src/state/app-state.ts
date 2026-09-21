@@ -220,6 +220,20 @@ export class AppStateStore {
     };
   }
 
+  setShowInactiveAlerts(showInactive: boolean): void {
+    this.current = {
+      ...this.current,
+      result_view: {
+        ...this.current.result_view,
+        show_inactive_alerts: showInactive,
+        alert_page: 1,
+      },
+      message: showInactive
+        ? "Active and inactive alert episodes are shown. CUSUM was not recalculated."
+        : "Only currently active alert episodes are shown. CUSUM was not recalculated.",
+    };
+  }
+
   setExportMessage(message: string): void {
     this.current = {
       ...this.current,
