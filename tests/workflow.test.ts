@@ -204,12 +204,12 @@ describe("Application workflow", () => {
     await controller.selectFile(new File(["data"], "data.csv"));
     controller.runAnalysis();
     const creationCount = chart.render.mock.calls.length;
-    const alertOnly = root.querySelector<HTMLInputElement>("#alert-only-filter");
-    if (alertOnly === null) throw new Error("Missing alert-only filter.");
-    alertOnly.checked = true;
-    alertOnly.dispatchEvent(new Event("change", { bubbles: true }));
+    const alertSeriesOnly = root.querySelector<HTMLInputElement>("#series-with-alerts-filter");
+    if (alertSeriesOnly === null) throw new Error("Missing series-with-alerts filter.");
+    alertSeriesOnly.checked = true;
+    alertSeriesOnly.dispatchEvent(new Event("change", { bubbles: true }));
     expect(analyze).toHaveBeenCalledOnce();
-    expect(controller.getState().result_view.filters.alert_only).toBe(true);
+    expect(controller.getState().result_view.filters.series_with_alerts_only).toBe(true);
     expect(controller.getState().result_view.processed_page).toBe(1);
     expect(chart.render.mock.calls.length).toBeGreaterThanOrEqual(creationCount);
   });
@@ -290,9 +290,11 @@ describe("Application workflow", () => {
     const { root, controller, analyze, downloadVisualization } = setup(result(undefined, rows));
     await controller.selectFile(new File(["data"], "data.csv"));
     controller.runAnalysis();
-    const areaFilter = root.querySelector<HTMLSelectElement>("#area-filter")!;
-    [...areaFilter.options].forEach((option) => { option.selected = option.value === "B"; });
-    areaFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    const areaCheckboxes = [...root.querySelectorAll<HTMLInputElement>("#area-filter input[type=checkbox]")];
+    areaCheckboxes.forEach((input) => {
+      input.checked = input.nextElementSibling?.textContent === "B";
+    });
+    areaCheckboxes[0]?.dispatchEvent(new Event("change", { bubbles: true }));
 
     root.querySelector<HTMLButtonElement>("#export-visualization")!.click();
 

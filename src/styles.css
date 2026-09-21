@@ -550,6 +550,81 @@ dd {
   font-weight: 700;
 }
 
+.checkbox-filter {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 0.2rem;
+}
+
+.checkbox-filter legend {
+  padding: 0;
+  line-height: 1.25;
+}
+
+.checkbox-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filter-list-button {
+  min-height: auto;
+  padding: 0.05rem 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--purple-800);
+  background: transparent;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.filter-list-button:hover:not(:disabled) {
+  color: var(--purple-950);
+  background: transparent;
+  text-decoration: underline;
+}
+
+.checkbox-option-list {
+  max-height: 9rem;
+  padding: 0.15rem;
+  overflow-y: auto;
+  border: 1px solid #a99db5;
+  border-radius: 0.35rem;
+  background: white;
+}
+
+.filter-checkbox-option {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.16rem 0.3rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.filter-checkbox-option:hover {
+  background: var(--purple-50);
+}
+
+.filter-checkbox-option input {
+  flex: 0 0 auto;
+  width: 1rem;
+  min-height: 1rem;
+  margin: 0.05rem 0 0;
+  padding: 0;
+  accent-color: var(--purple-700);
+}
+
+.filter-checkbox-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .filter-control select[multiple] {
   min-height: 6.5rem;
 }

@@ -4,7 +4,7 @@ export interface ResultDisplayFilters {
   selected_areas: string[];
   selected_risk_groups: string[];
   selected_series: string[];
-  alert_only: boolean;
+  series_with_alerts_only: boolean;
   start_date: string;
   end_date: string;
 }

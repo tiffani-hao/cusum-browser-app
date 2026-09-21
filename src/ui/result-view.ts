@@ -2,11 +2,12 @@ import type { AnalysisWorkflowState } from "../import";
 import { countDisplayedAlertEpisodes, identifyAlertEpisodes } from "../core";
 import {
   chartWidthForIntervals,
+  filterChartRecords,
   filterAlertEpisodes,
   filterProcessedRecords,
-  filterSelectedSeries,
   formatResultNumber,
   independentSeries,
+  MAX_DISPLAYED_CHART_SERIES,
   uniqueAreas,
   uniqueRiskGroups,
 } from "../results";
@@ -96,7 +97,8 @@ export class ResultView {
     this.renderMetrics(state);
     this.renderFilters(state, disabled);
     const filtered = filterProcessedRecords(result.records, state.result_view.filters);
-    const chartRecords = filterSelectedSeries(filtered, state.result_view.filters.selected_series);
+    const chartRecords = filterChartRecords(result.records, state.result_view.filters);
+    const stratified = result.records.some((record) => record.risk_group !== undefined);
     const allAlertEpisodes = identifyAlertEpisodes(result.records);
     const filteredAlertEpisodes = filterAlertEpisodes(
       allAlertEpisodes,
@@ -106,7 +108,10 @@ export class ResultView {
     this.updateChartWidth();
     requiredElement<HTMLElement>(this.root, "#filter-result-summary").textContent =
       `${filtered.length.toLocaleString()} of ${result.records.length.toLocaleString()} processed records displayed; ` +
-      `${state.result_view.filters.selected_series.length.toLocaleString()} chart series selected.`;
+      (stratified
+        ? `${state.result_view.filters.selected_series.length.toLocaleString()} series selected; `
+        : `${state.result_view.filters.selected_areas.length.toLocaleString()} Areas selected; `) +
+      `${independentSeries(chartRecords).length.toLocaleString()} series currently plotted.`;
     const chartKey = JSON.stringify({
       filters: state.result_view.filters,
       threshold: result.summary.threshold,
@@ -125,6 +130,9 @@ export class ResultView {
         result.summary.baseline_window,
         result.summary.analysis_interval,
         result.records,
+        state.result_view.filters.series_with_alerts_only
+          ? "No selected series within the current display filters has an alert episode. Adjust the filters or turn off Show Only Series with Alerts."
+          : undefined,
       );
       this.setChartInteractionStatus("");
       this.lastChartRecords = result.records;
@@ -204,40 +212,81 @@ export class ResultView {
     const result = state.analysis_result;
     if (result?.success !== true) return;
     const filters = state.result_view.filters;
-    const area = requiredElement<HTMLSelectElement>(this.root, "#area-filter");
-    const risk = requiredElement<HTMLSelectElement>(this.root, "#risk-filter");
-    const series = requiredElement<HTMLSelectElement>(this.root, "#series-filter");
-    renderSelectOptions(area, uniqueAreas(result.records), filters.selected_areas);
-    renderSelectOptions(risk, uniqueRiskGroups(result.records), filters.selected_risk_groups);
-    renderSelectOptions(
-      series,
-      independentSeries(result.records).map((option) => ({ value: option.key, label: option.label })),
-      filters.selected_series,
-    );
-    risk.closest<HTMLElement>(".filter-control")!.hidden = risk.options.length === 0;
-    const alertOnly = requiredElement<HTMLInputElement>(this.root, "#alert-only-filter");
+    const area = requiredElement<HTMLElement>(this.root, "#area-filter");
+    const risk = requiredElement<HTMLElement>(this.root, "#risk-filter");
+    const series = requiredElement<HTMLElement>(this.root, "#series-filter");
+    const areaControl = requiredElement<HTMLFieldSetElement>(this.root, "#area-filter-control");
+    const riskControl = requiredElement<HTMLFieldSetElement>(this.root, "#risk-filter-control");
+    const seriesControl = requiredElement<HTMLFieldSetElement>(this.root, "#series-filter-control");
+    const availableSeries = independentSeries(result.records);
+    const stratified = availableSeries.some((option) => option.risk_group !== undefined);
+    riskControl.hidden = !stratified;
+    seriesControl.hidden = !stratified;
+    const areaDefaultHelp = requiredElement<HTMLElement>(this.root, "#area-default-help");
+    areaDefaultHelp.hidden = stratified || availableSeries.length <= MAX_DISPLAYED_CHART_SERIES;
+    areaDefaultHelp.textContent = !stratified && availableSeries.length > MAX_DISPLAYED_CHART_SERIES
+      ? `The first ${MAX_DISPLAYED_CHART_SERIES} of ${availableSeries.length.toLocaleString()} Areas are selected by default; all remain available here.`
+      : "";
+    requiredElement<HTMLElement>(this.root, "#series-filter-help").textContent =
+      availableSeries.some((option) => option.risk_group !== undefined)
+        ? "Select individual plotted series. Each series represents an Area–Strata combination."
+        : "Select individual plotted series. Each series represents one Area.";
+    requiredElement<HTMLElement>(this.root, "#series-default-help").textContent =
+      availableSeries.length > MAX_DISPLAYED_CHART_SERIES
+        ? `The first ${MAX_DISPLAYED_CHART_SERIES} of ${availableSeries.length.toLocaleString()} series are selected by default; all remain available here.`
+        : "All series are selected by default.";
+    const alertSeriesOnly = requiredElement<HTMLInputElement>(this.root, "#series-with-alerts-filter");
     const startDate = requiredElement<HTMLInputElement>(this.root, "#start-date-filter");
     const endDate = requiredElement<HTMLInputElement>(this.root, "#end-date-filter");
-    alertOnly.checked = filters.alert_only;
+    alertSeriesOnly.checked = filters.series_with_alerts_only;
     startDate.value = filters.start_date;
     endDate.value = filters.end_date;
-    for (const control of [area, risk, series, alertOnly, startDate, endDate]) control.disabled = disabled;
+    areaControl.disabled = disabled;
+    riskControl.disabled = disabled;
+    seriesControl.disabled = disabled;
+    for (const control of [alertSeriesOnly, startDate, endDate]) control.disabled = disabled;
     requiredElement<HTMLButtonElement>(this.root, "#reset-display-filters").disabled = disabled;
     const update = (): void => {
       this.store.updateDisplayFilters({
-        selected_areas: selectedValues(area),
-        selected_risk_groups: selectedValues(risk),
-        selected_series: selectedValues(series),
-        alert_only: alertOnly.checked,
+        selected_areas: selectedCheckboxValues(area),
+        selected_risk_groups: selectedCheckboxValues(risk),
+        selected_series: selectedCheckboxValues(series),
+        series_with_alerts_only: filters.series_with_alerts_only,
         start_date: startDate.value,
         end_date: endDate.value,
       });
       this.dependencies.requestRender();
     };
-    replaceChangeHandler(area, update);
-    replaceChangeHandler(risk, update);
-    replaceChangeHandler(series, update);
-    replaceChangeHandler(alertOnly, update);
+    renderCheckboxOptions(area, uniqueAreas(result.records), filters.selected_areas, update);
+    renderCheckboxOptions(risk, uniqueRiskGroups(result.records), filters.selected_risk_groups, update);
+    renderCheckboxOptions(
+      series,
+      availableSeries.map((option) => ({ value: option.key, label: option.label })),
+      filters.selected_series,
+      update,
+    );
+    configureCheckboxActions(
+      requiredElement(this.root, "#area-select-all"),
+      requiredElement(this.root, "#area-clear-all"),
+      area,
+      update,
+    );
+    configureCheckboxActions(
+      requiredElement(this.root, "#risk-select-all"),
+      requiredElement(this.root, "#risk-clear-all"),
+      risk,
+      update,
+    );
+    configureCheckboxActions(
+      requiredElement(this.root, "#series-select-all"),
+      requiredElement(this.root, "#series-clear-all"),
+      series,
+      update,
+    );
+    replaceChangeHandler(alertSeriesOnly, () => {
+      this.store.setSeriesWithAlertsOnly(alertSeriesOnly.checked);
+      this.dependencies.requestRender();
+    });
     replaceChangeHandler(startDate, update);
     replaceChangeHandler(endDate, update);
   }
@@ -262,8 +311,7 @@ export class ResultView {
     const state = this.store.state;
     const result = state.analysis_result;
     if (result?.success !== true || state.result_view.result_stale || this.canvas.hidden) return;
-    const filtered = filterProcessedRecords(result.records, state.result_view.filters);
-    const chartRecords = filterSelectedSeries(filtered, state.result_view.filters.selected_series);
+    const chartRecords = filterChartRecords(result.records, state.result_view.filters);
     const dates = [...new Set(chartRecords.map((record) => record.date))]
       .sort((left, right) => left.localeCompare(right));
     if (dates.length === 0) return;
@@ -375,19 +423,39 @@ function resultMarkup(): string {
         <button id="reset-display-filters" class="button button-secondary" type="button">Reset Display Filters</button>
       </div>
       <div class="filter-grid">
-        <label class="filter-control">Areas shown
-          <select id="area-filter" multiple size="4"></select>
-          <small>Use Ctrl/Command to select multiple.</small>
-        </label>
-        <label class="filter-control">Strata shown
-          <select id="risk-filter" multiple size="4"></select>
-          <small>Use Ctrl/Command to select multiple.</small>
-        </label>
-        <label class="filter-control">Chart series shown
-          <select id="series-filter" multiple size="4"></select>
-          <small>Every series is shown initially.</small>
-        </label>
-        <label class="toggle-label compact"><input id="alert-only-filter" type="checkbox" /> Show alerts only</label>
+        <fieldset id="area-filter-control" class="filter-control checkbox-filter">
+          <legend>Areas</legend>
+          <div class="checkbox-list-actions">
+            <button id="area-select-all" class="button button-secondary filter-list-button" type="button">Select all</button>
+            <button id="area-clear-all" class="button button-secondary filter-list-button" type="button">Clear all</button>
+          </div>
+          <div id="area-filter" class="checkbox-option-list" role="group" aria-label="Areas"></div>
+          <small>Filter by geographic or surveillance unit. Selected areas determine which series are eligible to display.</small>
+          <small id="area-default-help"></small>
+        </fieldset>
+        <fieldset id="risk-filter-control" class="filter-control checkbox-filter">
+          <legend>Strata</legend>
+          <div class="checkbox-list-actions">
+            <button id="risk-select-all" class="button button-secondary filter-list-button" type="button">Select all</button>
+            <button id="risk-clear-all" class="button button-secondary filter-list-button" type="button">Clear all</button>
+          </div>
+          <div id="risk-filter" class="checkbox-option-list" role="group" aria-label="Strata"></div>
+          <small>Filter by strata value across the selected Areas.</small>
+        </fieldset>
+        <fieldset id="series-filter-control" class="filter-control checkbox-filter">
+          <legend>Displayed Series</legend>
+          <div class="checkbox-list-actions">
+            <button id="series-select-all" class="button button-secondary filter-list-button" type="button">Select all</button>
+            <button id="series-clear-all" class="button button-secondary filter-list-button" type="button">Clear all</button>
+          </div>
+          <div id="series-filter" class="checkbox-option-list" role="group" aria-label="Displayed Series"></div>
+          <small id="series-filter-help"></small>
+          <small id="series-default-help"></small>
+        </fieldset>
+        <div class="filter-control">
+          <label class="toggle-label compact"><input id="series-with-alerts-filter" type="checkbox" /> Show Only Series with Alerts</label>
+          <small>Show the full history of selected series that have at least one alert episode.</small>
+        </div>
         <label class="filter-control">Display start date<input id="start-date-filter" type="date" /></label>
         <label class="filter-control">Display end date<input id="end-date-filter" type="date" /></label>
       </div>
@@ -484,25 +552,54 @@ function renderDefinitionList(list: HTMLElement, entries: [string, string][]): v
   });
 }
 
-function renderSelectOptions(
-  select: HTMLSelectElement,
+function renderCheckboxOptions(
+  container: HTMLElement,
   options: string[] | { value: string; label: string }[],
   selected: string[],
+  onChange: () => void,
 ): void {
-  select.replaceChildren();
+  container.replaceChildren();
   const selectedSet = new Set(selected);
   options.forEach((item) => {
     const value = typeof item === "string" ? item : item.value;
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = typeof item === "string" ? item : item.label;
-    option.selected = selectedSet.has(value);
-    select.append(option);
+    const label = document.createElement("label");
+    label.className = "filter-checkbox-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = encodeURIComponent(value);
+    input.checked = selectedSet.has(value);
+    input.addEventListener("change", onChange);
+    const text = document.createElement("span");
+    text.textContent = typeof item === "string" ? item : item.label;
+    label.append(input, text);
+    container.append(label);
   });
 }
 
-function selectedValues(select: HTMLSelectElement): string[] {
-  return [...select.selectedOptions].map((option) => option.value);
+function selectedCheckboxValues(container: HTMLElement): string[] {
+  return [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')]
+    .map((input) => decodeURIComponent(input.value));
+}
+
+function configureCheckboxActions(
+  selectAll: HTMLButtonElement,
+  clearAll: HTMLButtonElement,
+  container: HTMLElement,
+  onChange: () => void,
+): void {
+  selectAll.onclick = () => {
+    setAllCheckboxes(container, true);
+    onChange();
+  };
+  clearAll.onclick = () => {
+    setAllCheckboxes(container, false);
+    onChange();
+  };
+}
+
+function setAllCheckboxes(container: HTMLElement, checked: boolean): void {
+  container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    .forEach((input) => { input.checked = checked; });
 }
 
 const changeHandlers = new WeakMap<Element, EventListener>();

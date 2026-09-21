@@ -242,6 +242,249 @@ describe("disease preset behavior", () => {
 });
 
 describe("Results, alerts, and Help", () => {
+  it("distinguishes Areas from Displayed Series with concise contextual guidance", async () => {
+    const records = [
+      { ...record(1, false, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false, "Group 2"), area: "Area A", date: "2024-01-01" },
+      { ...record(3, false, "Group 1"), area: "Area B", date: "2024-01-01" },
+    ];
+    const { root, controller } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    expect(root.querySelector("#area-filter")?.parentElement?.textContent).toContain("Areas");
+    expect(root.querySelector("#area-filter")?.nextElementSibling?.textContent).toContain(
+      "Filter by geographic or surveillance unit.",
+    );
+    expect(root.querySelector("#series-filter")?.parentElement?.textContent).toContain(
+      "Displayed Series",
+    );
+    expect(root.querySelector<HTMLElement>("#series-filter-control")?.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>("#risk-filter-control")?.hidden).toBe(false);
+    expect(root.querySelector("#series-filter-help")?.textContent).toBe(
+      "Select individual plotted series. Each series represents an Area–Strata combination.",
+    );
+    expect(checkboxLabels(root, "#area-filter"))
+      .toEqual(["Area A", "Area B"]);
+    expect(checkboxLabels(root, "#series-filter"))
+      .toEqual(["Area A — Group 1", "Area A — Group 2", "Area B — Group 1"]);
+  });
+
+  it("uses Areas for the first 20 non-stratified series and hides the redundant series selector", async () => {
+    const records = Array.from({ length: 25 }, (_, index) => ({
+      ...record(1, false),
+      area: `Area ${String(index + 1).padStart(2, "0")}`,
+      date: "2024-01-01",
+    }));
+    const { root, controller } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    expect(root.querySelectorAll("#area-filter input[type=checkbox]")).toHaveLength(25);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(
+      Array.from({ length: 20 }, (_, index) => `Area ${String(index + 1).padStart(2, "0")}`),
+    );
+    expect(root.querySelector<HTMLElement>("#series-filter-control")?.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>("#risk-filter-control")?.hidden).toBe(true);
+    expect(root.querySelector("#area-default-help")?.textContent).toBe(
+      "The first 20 of 25 Areas are selected by default; all remain available here.",
+    );
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("20 displayed series");
+  });
+
+  it("supports Select all and Clear all for the non-stratified Areas checklist", async () => {
+    const records = ["Area A", "Area B", "Area C"].map((area, index) => ({
+      ...record(index + 1, false),
+      area,
+      date: "2024-01-01",
+    }));
+    const { root, controller } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(["Area A", "Area B", "Area C"]);
+    root.querySelector<HTMLButtonElement>("#area-clear-all")!.click();
+    expect(controller.getState().result_view.filters.selected_areas).toEqual([]);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual([]);
+    expect(root.querySelector<HTMLElement>("#chart-empty")?.hidden).toBe(false);
+    root.querySelector<HTMLButtonElement>("#area-select-all")!.click();
+    expect(controller.getState().result_view.filters.selected_areas).toEqual(["Area A", "Area B", "Area C"]);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(["Area A", "Area B", "Area C"]);
+  });
+
+  it("shows the first 20 stratified series as checked and keeps the remaining checkboxes available", async () => {
+    const records = Array.from({ length: 25 }, (_, index) => ({
+      ...record(1, false, `Group ${String(index + 1).padStart(2, "0")}`),
+      area: "Area A",
+      date: "2024-01-01",
+    }));
+    const { root, controller } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    expect(root.querySelectorAll("#series-filter input[type=checkbox]")).toHaveLength(25);
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual(
+      Array.from({ length: 20 }, (_, index) => `Area A — Group ${String(index + 1).padStart(2, "0")}`),
+    );
+  });
+
+  it("supports series checklist actions and preserves individual series choices across Area changes", async () => {
+    const records = [
+      { ...record(1, false, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false, "Group 2"), area: "Area A", date: "2024-01-01" },
+      { ...record(3, false, "Group 1"), area: "Area B", date: "2024-01-01" },
+    ];
+    const { root, controller } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const selectedAreas = [...controller.getState().result_view.filters.selected_areas];
+    const initiallySelectedSeries = [...controller.getState().result_view.filters.selected_series];
+    expect(checkedCheckboxLabels(root, "#risk-filter")).toEqual(["Group 1", "Group 2"]);
+    root.querySelector<HTMLButtonElement>("#risk-clear-all")!.click();
+    expect(controller.getState().result_view.filters.selected_risk_groups).toEqual([]);
+    expect(controller.getState().result_view.filters.selected_areas).toEqual(selectedAreas);
+    expect(controller.getState().result_view.filters.selected_series).toEqual(initiallySelectedSeries);
+    expect(checkedCheckboxLabels(root, "#risk-filter")).toEqual([]);
+    expect(root.querySelector<HTMLElement>("#chart-empty")?.hidden).toBe(false);
+    root.querySelector<HTMLButtonElement>("#risk-select-all")!.click();
+    expect(controller.getState().result_view.filters.selected_risk_groups).toEqual(["Group 1", "Group 2"]);
+    expect(checkedCheckboxLabels(root, "#risk-filter")).toEqual(["Group 1", "Group 2"]);
+
+    root.querySelector<HTMLButtonElement>("#series-clear-all")!.click();
+    expect(controller.getState().result_view.filters.selected_series).toEqual([]);
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([]);
+    root.querySelector<HTMLButtonElement>("#series-select-all")!.click();
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([
+      "Area A — Group 1",
+      "Area A — Group 2",
+      "Area B — Group 1",
+    ]);
+
+    setCheckboxSelection(root, "#series-filter", ["Area A — Group 1", "Area B — Group 1"]);
+    const selectedSeries = [...controller.getState().result_view.filters.selected_series];
+    setCheckboxSelection(root, "#area-filter", ["Area B"]);
+    expect(controller.getState().result_view.filters.selected_series).toEqual(selectedSeries);
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([
+      "Area A — Group 1",
+      "Area B — Group 1",
+    ]);
+    root.querySelector<HTMLButtonElement>("#area-select-all")!.click();
+    expect(controller.getState().result_view.filters.selected_series).toEqual(selectedSeries);
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("2 displayed series");
+  });
+
+  it("uses labeled native checkboxes inside bounded scrollable filter lists", async () => {
+    const records = [
+      { ...record(1, false, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false, "Group 2"), area: "Area A", date: "2024-01-01" },
+    ];
+    const { root, controller } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    for (const list of root.querySelectorAll<HTMLElement>(".checkbox-option-list")) {
+      for (const input of list.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+        expect(input.closest("label")?.querySelector("span")?.textContent).not.toBe("");
+      }
+    }
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    expect(css).toContain(".checkbox-option-list");
+    expect(css).toContain("max-height: 9rem");
+    expect(css).toContain("overflow-y: auto");
+  });
+
+  it("rebuilds filter visibility and selection when switching between stratified and non-stratified datasets", async () => {
+    const stratifiedResult = completedResult([
+      { ...record(1, false, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false, "Group 2"), area: "Area A", date: "2024-01-01" },
+    ]);
+    const nonStratifiedResult = completedResult([
+      { ...record(1, false), area: "Area B", date: "2024-01-01" },
+      { ...record(2, false), area: "Area C", date: "2024-01-01" },
+    ]);
+    const nextStratifiedResult = completedResult([
+      { ...record(1, false, "Group 3"), area: "Area D", date: "2024-01-01" },
+      { ...record(2, false, "Group 4"), area: "Area D", date: "2024-01-01" },
+    ]);
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    const importFile = vi.fn()
+      .mockResolvedValueOnce(parsed(true))
+      .mockResolvedValueOnce(parsed(false))
+      .mockResolvedValueOnce(parsed(true));
+    const analyze = vi.fn()
+      .mockReturnValueOnce(stratifiedResult)
+      .mockReturnValueOnce(nonStratifiedResult)
+      .mockReturnValueOnce(nextStratifiedResult);
+    const controller = createWorkflowApp(root, {
+      importFile,
+      analyze,
+      chart: { render: vi.fn(), clear: vi.fn() },
+      download: vi.fn(() => "neutral.csv"),
+    });
+
+    await controller.selectFile(new File(["stratified"], "stratified.csv"));
+    controller.runAnalysis();
+    expect(root.querySelector<HTMLElement>("#series-filter-control")?.hidden).toBe(false);
+    expect(controller.getState().result_view.filters.selected_series).toHaveLength(2);
+
+    await controller.selectFile(new File(["areas"], "areas.csv"));
+    controller.runAnalysis();
+    expect(root.querySelector<HTMLElement>("#series-filter-control")?.hidden).toBe(true);
+    expect(controller.getState().result_view.filters.selected_series).toEqual([]);
+    expect(controller.getState().result_view.filters.selected_areas).toEqual(["Area B", "Area C"]);
+    expect(checkboxLabels(root, "#area-filter"))
+      .toEqual(["Area B", "Area C"]);
+
+    await controller.selectFile(new File(["stratified-again"], "stratified-again.csv"));
+    controller.runAnalysis();
+    expect(root.querySelector<HTMLElement>("#series-filter-control")?.hidden).toBe(false);
+    expect(controller.getState().result_view.filters.selected_areas).toEqual(["Area D"]);
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([
+      "Area D — Group 3",
+      "Area D — Group 4",
+    ]);
+  });
+
+  it("shows full selected series with alert episodes and restores the selection when toggled off", async () => {
+    const records = [
+      { ...record(1, true), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false), area: "Area A", date: "2024-02-01" },
+      { ...record(3, false), area: "Area B", date: "2024-01-01" },
+      { ...record(4, false), area: "Area B", date: "2024-02-01" },
+    ];
+    const { root, controller, analyze } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const originalSelection = [...controller.getState().result_view.filters.selected_series];
+    const originalAreas = checkedCheckboxLabels(root, "#area-filter");
+    const toggle = root.querySelector<HTMLInputElement>("#series-with-alerts-filter")!;
+    expect(toggle.parentElement?.textContent).toContain("Show Only Series with Alerts");
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().result_view.filters.selected_series).toEqual(originalSelection);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(originalAreas);
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("1 displayed series");
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("from 2024-01-01 to 2024-02-01");
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().result_view.filters.selected_series).toEqual(originalSelection);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(originalAreas);
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("2 displayed series");
+    expect(analyze).toHaveBeenCalledOnce();
+  });
+
+  it("shows an explanatory empty chart when no selected series has alerts", async () => {
+    const records = [
+      { ...record(1, false), area: "Area A", date: "2024-01-01" },
+      { ...record(2, false), area: "Area B", date: "2024-01-01" },
+    ];
+    const { root, controller } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+    const toggle = root.querySelector<HTMLInputElement>("#series-with-alerts-filter")!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    const empty = root.querySelector<HTMLElement>("#chart-empty")!;
+    expect(empty.hidden).toBe(false);
+    expect(empty.textContent).toContain("No selected series within the current display filters has an alert episode");
+  });
+
   it("shows four approved KPI cards without duplicated settings", async () => {
     const records = [
       { ...record(1, true), area: "Area A", date: "2024-01-01" },
@@ -362,12 +605,8 @@ describe("Results, alerts, and Help", () => {
     const container = root.querySelector<HTMLElement>("#alert-table-container")!;
     const completeSummary = "Total alert episodes3Currently active3Inactive0Series with alerts3";
     expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
-    const areaFilter = root.querySelector<HTMLSelectElement>("#area-filter")!;
-    [...areaFilter.options].forEach((option) => { option.selected = option.value === "Area A"; });
-    areaFilter.dispatchEvent(new Event("change", { bubbles: true }));
-    const strataFilter = root.querySelector<HTMLSelectElement>("#risk-filter")!;
-    [...strataFilter.options].forEach((option) => { option.selected = option.value === "Group 1"; });
-    strataFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    setCheckboxSelection(root, "#area-filter", ["Area A"]);
+    setCheckboxSelection(root, "#risk-filter", ["Group 1"]);
     expect(container.querySelector(".alert-summary")?.textContent).toBe(completeSummary);
     expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
     expect(analyze).toHaveBeenCalledOnce();
@@ -501,4 +740,23 @@ function record(index: number, isAlert: boolean, riskGroup?: string): ProcessedC
     threshold: 3,
     is_alert: isAlert,
   };
+}
+
+function checkboxLabels(root: ParentNode, selector: string): string[] {
+  return [...root.querySelectorAll<HTMLElement>(`${selector} .filter-checkbox-option span`)]
+    .map((label) => label.textContent ?? "");
+}
+
+function checkedCheckboxLabels(root: ParentNode, selector: string): string[] {
+  return [...root.querySelectorAll<HTMLInputElement>(`${selector} input[type="checkbox"]:checked`)]
+    .map((input) => input.nextElementSibling?.textContent ?? "");
+}
+
+function setCheckboxSelection(root: ParentNode, selector: string, selectedLabels: string[]): void {
+  const selected = new Set(selectedLabels);
+  const inputs = [...root.querySelectorAll<HTMLInputElement>(`${selector} input[type="checkbox"]`)];
+  inputs.forEach((input) => {
+    input.checked = selected.has(input.nextElementSibling?.textContent ?? "");
+  });
+  inputs[0]?.dispatchEvent(new Event("change", { bubbles: true }));
 }

@@ -8,6 +8,7 @@ import {
   filterProcessedRecords,
   paginateRecords,
   serializeProcessedCsv,
+  uniqueAreas,
 } from "../src/results";
 
 const OPTIONS: AnalysisOptions = {
@@ -46,9 +47,13 @@ describe("large synthetic-data performance observations", () => {
     expect(analysis.records).toHaveLength(size);
 
     started = performance.now();
+    const allAreaFilters = {
+      ...createDefaultDisplayFilters(analysis.records),
+      selected_areas: uniqueAreas(analysis.records),
+    };
     const filtered = filterProcessedRecords(
       analysis.records,
-      createDefaultDisplayFilters(analysis.records),
+      allAreaFilters,
     );
     timings.filtering_ms = performance.now() - started;
     expect(filtered).toHaveLength(size);
@@ -97,4 +102,3 @@ function generateSyntheticRows(size: number): {
 function roundTimings(timings: Record<string, number>): Record<string, number> {
   return Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, Math.round(value * 10) / 10]));
 }
-

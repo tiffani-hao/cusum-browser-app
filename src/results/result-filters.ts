@@ -1,13 +1,19 @@
+import { identifyAlertEpisodes } from "../core";
 import type { AlertEpisode, ProcessedCusumRecord } from "../core";
 import { independentSeries, seriesKey, uniqueAreas, uniqueRiskGroups } from "./result-selectors";
 import type { ResultDisplayFilters, ResultViewState } from "./types";
 
+export const MAX_DISPLAYED_CHART_SERIES = 20;
+
 export function createDefaultDisplayFilters(records: ProcessedCusumRecord[]): ResultDisplayFilters {
+  const series = independentSeries(records);
+  const stratified = series.some((option) => option.risk_group !== undefined);
+  const defaultSeries = series.slice(0, MAX_DISPLAYED_CHART_SERIES);
   return {
-    selected_areas: uniqueAreas(records),
+    selected_areas: stratified ? uniqueAreas(records) : defaultSeries.map((option) => option.area),
     selected_risk_groups: uniqueRiskGroups(records),
-    selected_series: independentSeries(records).map((series) => series.key),
-    alert_only: false,
+    selected_series: stratified ? defaultSeries.map((option) => option.key) : [],
+    series_with_alerts_only: false,
     start_date: "",
     end_date: "",
   };
@@ -19,7 +25,7 @@ export function createInitialResultViewState(): ResultViewState {
       selected_areas: [],
       selected_risk_groups: [],
       selected_series: [],
-      alert_only: false,
+      series_with_alerts_only: false,
       start_date: "",
       end_date: "",
     },
@@ -64,7 +70,6 @@ export function filterProcessedRecords(
   return records.filter((record) =>
     selectedAreas.has(record.area) &&
     (record.risk_group === undefined || selectedRiskGroups.has(record.risk_group)) &&
-    (!filters.alert_only || record.is_alert) &&
     (filters.start_date === "" || record.date >= filters.start_date) &&
     (filters.end_date === "" || record.date <= filters.end_date)
   );
@@ -74,8 +79,16 @@ export function filterChartRecords(
   records: ProcessedCusumRecord[],
   filters: ResultDisplayFilters,
 ): ProcessedCusumRecord[] {
-  const selectedSeries = new Set(filters.selected_series);
-  return filterProcessedRecords(records, filters).filter((record) => selectedSeries.has(seriesKey(record)));
+  const stratified = records.some((record) => record.risk_group !== undefined);
+  const selectedSeries = stratified ? new Set(filters.selected_series) : null;
+  const seriesWithAlerts = filters.series_with_alerts_only
+    ? new Set(identifyAlertEpisodes(records).map((episode) => seriesKey(episode)))
+    : null;
+  return filterProcessedRecords(records, filters).filter((record) => {
+    const key = seriesKey(record);
+    return (selectedSeries === null || selectedSeries.has(key)) &&
+      (seriesWithAlerts === null || seriesWithAlerts.has(key));
+  });
 }
 
 export function filterSelectedSeries(

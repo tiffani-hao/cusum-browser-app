@@ -96,12 +96,28 @@ describe("in-memory application state", () => {
     store.setProcessedPage(2);
     store.updateDisplayFilters({
       ...store.state.result_view.filters,
-      alert_only: true,
+      series_with_alerts_only: true,
     });
-    expect(store.state.result_view.filters.alert_only).toBe(true);
+    expect(store.state.result_view.filters.series_with_alerts_only).toBe(true);
     expect(store.state.result_view.processed_page).toBe(1);
     expect(store.state.result_view.result_stale).toBe(false);
     expect(store.state.status).toBe("analysis-completed");
+  });
+
+  it("preserves selected series while the alert-series display toggle changes", () => {
+    const store = completedStore();
+    const selectedSeries = [...store.state.result_view.filters.selected_series];
+    store.setProcessedPage(2);
+    store.setAlertPage(3);
+    store.setSeriesWithAlertsOnly(true);
+    expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
+    expect(store.state.result_view.processed_page).toBe(2);
+    expect(store.state.result_view.alert_page).toBe(3);
+    store.setSeriesWithAlertsOnly(false);
+    expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
+    expect(store.state.result_view.processed_page).toBe(2);
+    expect(store.state.result_view.alert_page).toBe(3);
+    expect(store.state.result_view.result_stale).toBe(false);
   });
 
   it("toggles inactive alert episodes without marking results stale", () => {
@@ -119,11 +135,11 @@ describe("in-memory application state", () => {
     store.updateDisplayFilters({
       ...store.state.result_view.filters,
       selected_areas: [],
-      alert_only: true,
+      series_with_alerts_only: true,
     });
     store.resetDisplayFilters();
     expect(store.state.result_view.filters.selected_areas).toEqual(["A"]);
-    expect(store.state.result_view.filters.alert_only).toBe(false);
+    expect(store.state.result_view.filters.series_with_alerts_only).toBe(false);
     store.clearData();
     expect(store.state.result_view.filters.selected_areas).toEqual([]);
     expect(store.state.result_view.processed_page).toBe(1);

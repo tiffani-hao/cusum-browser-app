@@ -179,6 +179,23 @@ export class AppStateStore {
     };
   }
 
+  setSeriesWithAlertsOnly(enabled: boolean): void {
+    this.current = {
+      ...this.current,
+      result_view: {
+        ...this.current.result_view,
+        filters: {
+          ...this.current.result_view.filters,
+          series_with_alerts_only: enabled,
+        },
+        export_message: "",
+      },
+      message: enabled
+        ? "Only selected series with alert episodes are shown on the chart. CUSUM was not recalculated."
+        : "All selected series are shown on the chart. CUSUM was not recalculated.",
+    };
+  }
+
   resetDisplayFilters(): void {
     if (this.current.analysis_result?.success !== true) return;
     this.current = {
