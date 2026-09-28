@@ -51,3 +51,7 @@ npm run build
 ## Status
 
 This repository contains a working research prototype intended for further software-engineering review and deployment planning.
+
+## License
+
+This project is licensed under the Apache License 2.0. See the LICENSE file for details.
