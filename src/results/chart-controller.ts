@@ -15,6 +15,7 @@ import type {
   CusumChartData,
   CusumChartDataset,
 } from "./types";
+import { formatCusumForDisplay } from "./table-data";
 
 Chart.register(
   CategoryScale,
@@ -175,7 +176,7 @@ function tooltipLines(item: TooltipItem<"line">): string | string[] {
     `Series: ${record.series}`,
     `Date: ${record.date}`,
     `Count: ${record.count}`,
-    `CUSUM: ${record.cusum}`,
+    `CUSUM: ${formatCusumForDisplay(record.cusum)}`,
     `Alert: ${record.is_alert ? "Yes" : "No"}`,
   ];
 }

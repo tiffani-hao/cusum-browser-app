@@ -245,6 +245,105 @@ describe("Application workflow", () => {
     expect(chart.render).toHaveBeenCalledTimes(before);
   });
 
+  it("initially positions a long monthly chart at the most recent data and preserves manual scrolling", async () => {
+    const rows = Array.from({ length: 60 }, (_, index) => ({
+      area: "A",
+      date: `${2020 + Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}-01`,
+      count: String(index % 7),
+    }));
+    const { root, controller } = setup(result(undefined, rows));
+    const viewport = root.querySelector<HTMLElement>("#chart-viewport")!;
+    setChartDimensions(viewport, 300, 720);
+    await controller.selectFile(new File(["data"], "monthly.csv"));
+    controller.runAnalysis();
+    expect(viewport.scrollLeft).toBe(420);
+
+    viewport.scrollLeft = 100;
+    viewport.dispatchEvent(new Event("scroll"));
+    const firstArea = root.querySelector<HTMLInputElement>("#area-filter input[type=checkbox]")!;
+    firstArea.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(viewport.scrollLeft).toBe(100);
+  });
+
+  it("initially positions a long daily chart at the most recent data", async () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({
+      area: "A",
+      date: new Date(Date.UTC(2024, 0, index + 1)).toISOString().slice(0, 10),
+      count: String(index % 5),
+    }));
+    const { root, controller } = setup(result(undefined, rows));
+    const viewport = root.querySelector<HTMLElement>("#chart-viewport")!;
+    setChartDimensions(viewport, 400, 1_200);
+    await controller.selectFile(new File(["data"], "daily.csv"));
+    const interval = root.querySelector<HTMLSelectElement>("#analysis-interval")!;
+    interval.value = "daily";
+    interval.dispatchEvent(new Event("change", { bubbles: true }));
+    controller.runAnalysis();
+    expect(viewport.scrollLeft).toBe(800);
+  });
+
+  it("does not scroll a short chart when its complete time range fits", async () => {
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      area: "A",
+      date: `2024-${String(index + 1).padStart(2, "0")}-01`,
+      count: String(index),
+    }));
+    const { root, controller } = setup(result(undefined, rows));
+    const viewport = root.querySelector<HTMLElement>("#chart-viewport")!;
+    setChartDimensions(viewport, 900, 900);
+    await controller.selectFile(new File(["data"], "short.csv"));
+    controller.runAnalysis();
+    expect(viewport.scrollLeft).toBe(0);
+  });
+
+  it("collapses detailed results by default and toggles them without changing values", async () => {
+    const { root, controller, analyze } = setup();
+    await controller.selectFile(new File(["data"], "data.csv"));
+    controller.runAnalysis();
+    const details = root.querySelector<HTMLDetailsElement>("#detailed-results")!;
+    const summary = details.querySelector<HTMLElement>("summary")!;
+    expect(details.open).toBe(false);
+    expect(summary.textContent).toBe("Show detailed results");
+    summary.click();
+    expect(details.open).toBe(true);
+    await vi.waitFor(() => expect(summary.textContent).toBe("Hide detailed results"));
+    const completed = controller.getState().analysis_result;
+    const processedCount = completed?.success === true
+      ? completed.records.length
+      : 0;
+    expect(root.querySelectorAll("#processed-table-container tbody tr")).toHaveLength(processedCount);
+    summary.click();
+    expect(details.open).toBe(false);
+    await vi.waitFor(() => expect(summary.textContent).toBe("Show detailed results"));
+    summary.click();
+    await vi.waitFor(() => expect(summary.textContent).toBe("Hide detailed results"));
+    controller.runAnalysis();
+    expect(details.open).toBe(false);
+    expect(summary.textContent).toBe("Show detailed results");
+    expect(analyze).toHaveBeenCalledTimes(2);
+  });
+
+  it("accurately explains unchanged input and processed row counts", async () => {
+    const rows = [
+      { area: "A", date: "2024-01-01", count: "1" },
+      { area: "A", date: "2024-03-01", count: "2" },
+    ];
+    const { root, controller } = setup(result(undefined, rows));
+    await controller.selectFile(new File(["data"], "sparse.csv"));
+    controller.runAnalysis();
+    const metrics = [...root.querySelectorAll<HTMLElement>("#analysis-summary > div")];
+    const input = metrics.find((metric) => metric.querySelector("dt")?.textContent === "Input rows")!;
+    const processed = metrics.find((metric) => metric.querySelector("dt")?.textContent === "Processed rows")!;
+    expect(input.querySelector("dd")?.textContent).toBe("2");
+    expect(input.querySelector("small")?.textContent).toBe(
+      "Validated input records before interval standardization, duplicate aggregation, and missing-period filling.",
+    );
+    expect(processed.querySelector("dd")?.textContent).toBe("3");
+    expect(processed.querySelector("small")?.textContent).toBe(
+      "Analysis records after interval standardization, duplicate aggregation, missing-period filling, and CUSUM calculation.",
+    );
+  });
+
   it("opens and closes the expanded view without rerunning analysis", async () => {
     const { root, controller, analyze } = setup();
     await controller.selectFile(new File(["data"], "data.csv"));
@@ -411,3 +510,8 @@ describe("Application workflow", () => {
     await vi.waitFor(() => expect(controller.getState().metadata?.filename).toBe("dropped.csv"));
   });
 });
+
+function setChartDimensions(viewport: HTMLElement, clientWidth: number, scrollWidth: number): void {
+  Object.defineProperty(viewport, "clientWidth", { configurable: true, value: clientWidth });
+  Object.defineProperty(viewport, "scrollWidth", { configurable: true, value: scrollWidth });
+}

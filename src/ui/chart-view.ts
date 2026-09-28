@@ -2,7 +2,7 @@ import { countDisplayedAlertEpisodes } from "../core";
 import type { AnalysisInterval, ProcessedCusumRecord } from "../core";
 import {
   buildCusumChartData,
-  formatResultNumber,
+  formatCusumForDisplay,
   initialBaselinePeriodRecordKeys,
   isInitialBaselinePeriodRecord,
   MAX_DISPLAYED_CHART_SERIES,
@@ -48,7 +48,7 @@ export function renderChartView(
     : `${seriesCount.toLocaleString()} displayed series from ${dates[0]} to ${dates.at(-1)}; ` +
       `${baselineCount.toLocaleString()} displayed records fall within the shaded initial baseline period; ` +
       `all chart values remain visible; ${alertCount.toLocaleString()} displayed alert episodes; ` +
-      `highest displayed CUSUM ${formatResultNumber(highest)}.`;
+      `highest displayed CUSUM ${formatCusumForDisplay(highest)}.`;
   const chartUnavailable = records.length === 0 || seriesCount > MAX_PRACTICAL_CHART_SERIES;
   elements.empty.hidden = !chartUnavailable;
   elements.empty.textContent = records.length === 0

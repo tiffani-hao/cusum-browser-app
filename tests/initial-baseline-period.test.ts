@@ -68,8 +68,8 @@ describe("initial baseline-period presentation", () => {
       "Group 1",
       "2024-01-01",
       "1",
-      "0",
-      "1",
+      "0.00",
+      "1.00",
       "3",
       "Alert",
     ]);

@@ -1,6 +1,12 @@
 import { identifyAlertEpisodes } from "../core";
 import type { AlertEpisode, ProcessedCusumRecord } from "../core";
-import { independentSeries, seriesKey, uniqueAreas, uniqueRiskGroups } from "./result-selectors";
+import {
+  independentSeries,
+  seriesKey,
+  uniqueAreas,
+  uniqueResultDates,
+  uniqueRiskGroups,
+} from "./result-selectors";
 import type { ResultDisplayFilters, ResultViewState } from "./types";
 
 export const MAX_DISPLAYED_CHART_SERIES = 20;
@@ -9,13 +15,14 @@ export function createDefaultDisplayFilters(records: ProcessedCusumRecord[]): Re
   const series = independentSeries(records);
   const stratified = series.some((option) => option.risk_group !== undefined);
   const defaultSeries = series.slice(0, MAX_DISPLAYED_CHART_SERIES);
+  const dates = uniqueResultDates(records);
   return {
     selected_areas: stratified ? uniqueAreas(records) : defaultSeries.map((option) => option.area),
     selected_risk_groups: uniqueRiskGroups(records),
     selected_series: stratified ? defaultSeries.map((option) => option.key) : [],
     series_with_alerts_only: false,
-    start_date: "",
-    end_date: "",
+    start_date: dates[0] ?? "",
+    end_date: dates.at(-1) ?? "",
   };
 }
 

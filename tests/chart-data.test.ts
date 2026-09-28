@@ -134,13 +134,14 @@ describe("chart lifecycle", () => {
     });
   });
 
-  it("preserves detailed hover tooltip values from calculated records", () => {
+  it("rounds only the displayed CUSUM hover value to two decimal places", () => {
     const configurations: ChartConfiguration<"line">[] = [];
     const factory: ChartFactory = vi.fn((_canvas, configuration) => {
       configurations.push(configuration);
       return { destroy: vi.fn() };
     });
-    const data = buildCusumChartData(records, 3);
+    const preciseRecords = [record("A", "2024-01-01", 4.829374923, false)];
+    const data = buildCusumChartData(preciseRecords, 3);
     new CusumChartController(factory).render({} as HTMLCanvasElement, data);
     const label = configurations[0]?.options?.plugins?.tooltip?.callbacks?.label;
     expect(label).toBeTypeOf("function");
@@ -153,9 +154,10 @@ describe("chart lifecycle", () => {
       "Series: A",
       "Date: 2024-01-01",
       "Count: 2",
-      "CUSUM: 1",
+      "CUSUM: 4.83",
       "Alert: No",
     ]);
+    expect(preciseRecords[0]?.cusum).toBe(4.829374923);
   });
 });
 

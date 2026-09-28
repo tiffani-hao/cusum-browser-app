@@ -9,6 +9,7 @@ import {
   MAX_DISPLAYED_CHART_SERIES,
   seriesLabel,
   uniqueAreas,
+  uniqueResultDates,
   uniqueRiskGroups,
 } from "../src/results";
 
@@ -22,6 +23,10 @@ describe("result selectors and display filters", () => {
   it("returns unique sorted area and strata options", () => {
     expect(uniqueAreas(records)).toEqual(["A", "B"]);
     expect(uniqueRiskGroups(records)).toEqual(["High", "Low"]);
+  });
+
+  it("returns unique processed dates in chronological ISO order", () => {
+    expect(uniqueResultDates(records)).toEqual(["2024-01-01", "2024-01-02"]);
   });
 
   it("returns independent series in deterministic area and strata order", () => {
@@ -41,6 +46,8 @@ describe("result selectors and display filters", () => {
     expect(filters.selected_areas).toEqual(["A", "B"]);
     expect(filters.selected_risk_groups).toEqual(["High", "Low"]);
     expect(filters.selected_series).toHaveLength(3);
+    expect(filters.start_date).toBe("2024-01-01");
+    expect(filters.end_date).toBe("2024-01-02");
   });
 
   it("uses selected Areas directly for fewer than 20 non-stratified series", () => {

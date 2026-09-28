@@ -34,3 +34,11 @@ export function formatResultNumber(value: number): string {
     maximumFractionDigits: 6,
   });
 }
+
+export function formatCusumForDisplay(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(2) : String(value);
+}
+
+export function formatNormalizedCountForDisplay(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(2) : String(value);
+}

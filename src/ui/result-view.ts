@@ -5,10 +5,11 @@ import {
   filterChartRecords,
   filterAlertEpisodes,
   filterProcessedRecords,
-  formatResultNumber,
+  formatCusumForDisplay,
   independentSeries,
   MAX_DISPLAYED_CHART_SERIES,
   uniqueAreas,
+  uniqueResultDates,
   uniqueRiskGroups,
 } from "../results";
 import type { ChartRenderer, VisualizationSnapshot } from "../results";
@@ -38,6 +39,8 @@ export class ResultView {
   private readonly resetChartZoomButton: HTMLButtonElement;
   private readonly resetExpandedChartZoomButton: HTMLButtonElement;
   private readonly closeExpandedChartButton: HTMLButtonElement;
+  private readonly detailedResults: HTMLDetailsElement;
+  private readonly detailedResultsLabel: HTMLElement;
   private lastChartKey = "";
   private lastChartRecords: unknown = null;
   private currentChartIntervalCount = 0;
@@ -61,6 +64,8 @@ export class ResultView {
     this.resetChartZoomButton = requiredElement(root, "#reset-chart-zoom");
     this.resetExpandedChartZoomButton = requiredElement(root, "#reset-expanded-chart-zoom");
     this.closeExpandedChartButton = requiredElement(root, "#close-expanded-chart");
+    this.detailedResults = requiredElement(root, "#detailed-results");
+    this.detailedResultsLabel = requiredElement(root, "#detailed-results-label");
     requiredElement<HTMLButtonElement>(root, "#reset-display-filters").addEventListener("click", () => {
       store.resetDisplayFilters();
       dependencies.requestRender();
@@ -79,6 +84,7 @@ export class ResultView {
       if (event.target === this.expandedChartOverlay) this.closeExpandedChart();
     });
     this.expandedChartDialog.addEventListener("keydown", (event) => this.trapExpandedChartFocus(event));
+    this.detailedResults.addEventListener("toggle", () => this.updateDetailedResultsLabel());
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !this.expandedChartOverlay.hidden) this.closeExpandedChart();
     });
@@ -91,6 +97,11 @@ export class ResultView {
     if (result?.success !== true) {
       this.clear();
       return;
+    }
+    const isNewAnalysis = this.lastChartRecords !== result.records;
+    if (isNewAnalysis) {
+      this.detailedResults.open = false;
+      this.updateDetailedResultsLabel();
     }
     const disabled = state.result_view.result_stale;
     requiredElement<HTMLElement>(this.root, "#stale-results").hidden = !disabled;
@@ -138,6 +149,7 @@ export class ResultView {
       this.lastChartRecords = result.records;
       this.lastChartKey = chartKey;
     }
+    if (isNewAnalysis && !this.canvas.hidden) this.positionChartAtMostRecent();
     renderAlertTable(
       requiredElement(this.root, "#alert-table-container"),
       allAlertEpisodes,
@@ -199,11 +211,19 @@ export class ResultView {
   private renderMetrics(state: Readonly<AnalysisWorkflowState>): void {
     const result = state.analysis_result;
     if (result?.success !== true) return;
-    const metrics: [string, string][] = [
-      ["Input rows", result.summary.input_row_count.toLocaleString()],
-      ["Processed rows", result.summary.processed_row_count.toLocaleString()],
+    const metrics: [string, string, string?][] = [
+      [
+        "Input rows",
+        result.summary.input_row_count.toLocaleString(),
+        "Validated input records before interval standardization, duplicate aggregation, and missing-period filling.",
+      ],
+      [
+        "Processed rows",
+        result.summary.processed_row_count.toLocaleString(),
+        "Analysis records after interval standardization, duplicate aggregation, missing-period filling, and CUSUM calculation.",
+      ],
       ["Alerts", result.summary.alert_count.toLocaleString()],
-      ["Maximum CUSUM", formatResultNumber(result.summary.maximum_cusum)],
+      ["Maximum CUSUM", formatCusumForDisplay(result.summary.maximum_cusum)],
     ];
     renderDefinitionList(requiredElement(this.root, "#analysis-summary"), metrics);
   }
@@ -236,15 +256,18 @@ export class ResultView {
         ? `The first ${MAX_DISPLAYED_CHART_SERIES} of ${availableSeries.length.toLocaleString()} series are selected by default; all remain available here.`
         : "All series are selected by default.";
     const alertSeriesOnly = requiredElement<HTMLInputElement>(this.root, "#series-with-alerts-filter");
-    const startDate = requiredElement<HTMLInputElement>(this.root, "#start-date-filter");
-    const endDate = requiredElement<HTMLInputElement>(this.root, "#end-date-filter");
+    const startDate = requiredElement<HTMLSelectElement>(this.root, "#start-date-filter");
+    const endDate = requiredElement<HTMLSelectElement>(this.root, "#end-date-filter");
+    const availableDates = uniqueResultDates(result.records);
     alertSeriesOnly.checked = filters.series_with_alerts_only;
-    startDate.value = filters.start_date;
-    endDate.value = filters.end_date;
+    renderDateOptions(startDate, availableDates, filters.start_date, filters.end_date, "start");
+    renderDateOptions(endDate, availableDates, filters.end_date, filters.start_date, "end");
     areaControl.disabled = disabled;
     riskControl.disabled = disabled;
     seriesControl.disabled = disabled;
-    for (const control of [alertSeriesOnly, startDate, endDate]) control.disabled = disabled;
+    alertSeriesOnly.disabled = disabled;
+    startDate.disabled = disabled || availableDates.length === 0;
+    endDate.disabled = disabled || availableDates.length === 0;
     requiredElement<HTMLButtonElement>(this.root, "#reset-display-filters").disabled = disabled;
     const update = (): void => {
       this.store.updateDisplayFilters({
@@ -287,8 +310,14 @@ export class ResultView {
       this.store.setSeriesWithAlertsOnly(alertSeriesOnly.checked);
       this.dependencies.requestRender();
     });
-    replaceChangeHandler(startDate, update);
-    replaceChangeHandler(endDate, update);
+    replaceChangeHandler(startDate, () => {
+      if (endDate.value !== "" && startDate.value > endDate.value) endDate.value = startDate.value;
+      update();
+    });
+    replaceChangeHandler(endDate, () => {
+      if (startDate.value !== "" && endDate.value < startDate.value) startDate.value = endDate.value;
+      update();
+    });
   }
 
   private export(kind: "all" | "filtered" | "alerts"): void {
@@ -343,6 +372,19 @@ export class ResultView {
     if (width > 0) this.chartSurface.style.width = `${width}px`;
     else this.chartSurface.style.removeProperty("width");
     this.dependencies.chart.resize?.();
+  }
+
+  private positionChartAtMostRecent(): void {
+    const configuredWidth = Number.parseFloat(this.chartSurface.style.width) || 0;
+    const contentWidth = Math.max(this.chartViewport.scrollWidth, configuredWidth);
+    const maximumScroll = Math.max(0, contentWidth - this.chartViewport.clientWidth);
+    if (maximumScroll > 0) this.chartViewport.scrollLeft = maximumScroll;
+  }
+
+  private updateDetailedResultsLabel(): void {
+    this.detailedResultsLabel.textContent = this.detailedResults.open
+      ? "Hide detailed results"
+      : "Show detailed results";
   }
 
   private resetChartZoom(): void {
@@ -456,8 +498,10 @@ function resultMarkup(): string {
           <label class="toggle-label compact"><input id="series-with-alerts-filter" type="checkbox" /> Show Only Series with Alerts</label>
           <small>Show the full history of selected series that have at least one alert episode.</small>
         </div>
-        <label class="filter-control">Display start date<input id="start-date-filter" type="date" /></label>
-        <label class="filter-control">Display end date<input id="end-date-filter" type="date" /></label>
+        <div class="date-range-filter" role="group" aria-label="Display date range">
+          <label class="filter-control">Display start date<select id="start-date-filter"></select></label>
+          <label class="filter-control">Display end date<select id="end-date-filter"></select></label>
+        </div>
       </div>
       <p id="filter-result-summary" class="filter-result-summary" role="status" aria-live="polite"></p>
     </section>
@@ -491,10 +535,13 @@ function resultMarkup(): string {
       <div id="alert-table-container"></div>
     </section>
 
-    <section class="result-subsection" aria-labelledby="processed-table-heading">
-      <h3 id="processed-table-heading">Complete processed results</h3>
-      <div id="processed-table-container"></div>
-    </section>
+    <details id="detailed-results" class="result-subsection detailed-results">
+      <summary><span id="detailed-results-label">Show detailed results</span></summary>
+      <section aria-labelledby="processed-table-heading">
+        <h3 id="processed-table-heading">Complete processed results</h3>
+        <div id="processed-table-container"></div>
+      </section>
+    </details>
 
     <section class="result-subsection" aria-labelledby="export-heading">
       <h3 id="export-heading">Local results export</h3>
@@ -539,15 +586,20 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   return element;
 }
 
-function renderDefinitionList(list: HTMLElement, entries: [string, string][]): void {
+function renderDefinitionList(list: HTMLElement, entries: [string, string, string?][]): void {
   list.replaceChildren();
-  entries.forEach(([term, value]) => {
+  entries.forEach(([term, value, description]) => {
     const wrapper = document.createElement("div");
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
     dt.textContent = term;
     dd.textContent = value;
     wrapper.append(dt, dd);
+    if (description !== undefined) {
+      const help = document.createElement("small");
+      help.textContent = description;
+      wrapper.append(help);
+    }
     list.append(wrapper);
   });
 }
@@ -579,6 +631,36 @@ function renderCheckboxOptions(
 function selectedCheckboxValues(container: HTMLElement): string[] {
   return [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')]
     .map((input) => decodeURIComponent(input.value));
+}
+
+function renderDateOptions(
+  select: HTMLSelectElement,
+  dates: string[],
+  selectedDate: string,
+  oppositeDate: string,
+  boundary: "start" | "end",
+): void {
+  select.replaceChildren();
+  if (dates.length === 0) {
+    const option = document.createElement("option");
+    option.textContent = "No dates available";
+    option.value = "";
+    select.append(option);
+    select.disabled = true;
+    return;
+  }
+  const fallback = boundary === "start" ? dates[0]! : dates.at(-1)!;
+  const activeDate = dates.includes(selectedDate) ? selectedDate : fallback;
+  dates.forEach((date) => {
+    const option = document.createElement("option");
+    option.value = date;
+    option.textContent = date;
+    option.selected = date === activeDate;
+    option.disabled = oppositeDate !== "" && (
+      boundary === "start" ? date > oppositeDate : date < oppositeDate
+    );
+    select.append(option);
+  });
 }
 
 function configureCheckboxActions(

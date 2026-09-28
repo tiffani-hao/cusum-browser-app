@@ -20,6 +20,11 @@ export function uniqueRiskGroups(records: ProcessedCusumRecord[]): string[] {
     .sort((left, right) => left.localeCompare(right));
 }
 
+export function uniqueResultDates(records: ProcessedCusumRecord[]): string[] {
+  return [...new Set(records.map((record) => record.date))]
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export function independentSeries(records: ProcessedCusumRecord[]): SeriesOption[] {
   const byKey = new Map<string, SeriesOption>();
   for (const record of records) {
@@ -38,4 +43,3 @@ export function independentSeries(records: ProcessedCusumRecord[]): SeriesOption
     (left.risk_group ?? "").localeCompare(right.risk_group ?? "")
   );
 }
-

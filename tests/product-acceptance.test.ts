@@ -56,16 +56,16 @@ describe("Product acceptance states", () => {
       "not confirmation of an outbreak or transmission cluster",
     );
     expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
-      "Uploaded data and analysis are processed locally within the browser.",
+      "All uploaded data and analysis are processed locally on your device.",
     );
     expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
       "Display filters affect visualization only. They do not recalculate CUSUM or change the analysis settings.",
     );
     expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
-      "the HIV monthly preset uses a 36-month baseline",
+      "with a 36-month monthly baseline, approximately three years",
     );
     expect(root.querySelector(".help-dialog-body")?.textContent).toContain(
-      "Data remain visible in the shaded region",
+      "Data remain visible in this region",
     );
     const links = [...root.querySelectorAll<HTMLAnchorElement>(".sample-link")];
     expect(links).toHaveLength(5);

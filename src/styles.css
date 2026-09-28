@@ -373,6 +373,15 @@ p {
   font-size: 1.35rem;
 }
 
+.metric-grid small {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 dt {
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -548,6 +557,13 @@ dd {
   gap: 0.35rem;
   align-content: start;
   font-weight: 700;
+}
+
+.date-range-filter {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
 }
 
 .checkbox-filter {
@@ -758,6 +774,22 @@ dd {
 
 .alert-summary div {
   padding: 0.55rem 0.7rem;
+}
+
+.detailed-results > summary {
+  width: fit-content;
+  color: var(--purple-800);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.detailed-results > summary:hover {
+  color: var(--purple-950);
+  text-decoration: underline;
+}
+
+.detailed-results > section {
+  margin-top: 0.85rem;
 }
 
 .alert-actions {
@@ -1010,8 +1042,15 @@ body.sample-data-open {
 }
 
 .help-dialog-body p,
-.help-dialog-body li {
+.help-dialog-body li,
+.help-dialog-body address {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
   line-height: 1.5;
+}
+
+.help-dialog-body .help-setting-default {
+  margin-left: 1rem;
 }
 
 .help-dialog-body pre {
@@ -1078,11 +1117,6 @@ body.sample-data-open {
 .help-troubleshooting details p {
   margin: 0;
   padding: 0.75rem 0.85rem;
-}
-
-.help-methodology-note p {
-  color: var(--text-secondary);
-  font-size: 0.92rem;
 }
 
 .sample-grid {

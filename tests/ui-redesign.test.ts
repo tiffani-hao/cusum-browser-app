@@ -290,6 +290,74 @@ describe("Results, alerts, and Help", () => {
     expect(root.querySelector("#chart-summary")?.textContent).toContain("20 displayed series");
   });
 
+  it("groups date filters on one row and limits both controls to processed dates", async () => {
+    const records = [
+      { ...record(1, false), area: "Area A", date: "2024-03-01" },
+      { ...record(2, false), area: "Area A", date: "2024-01-01" },
+      { ...record(3, false), area: "Area B", date: "2024-02-01" },
+      { ...record(4, false), area: "Area B", date: "2024-03-01" },
+    ];
+    const { root, controller, analyze } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+
+    const dateRange = root.querySelector<HTMLElement>(".date-range-filter")!;
+    const start = root.querySelector<HTMLSelectElement>("#start-date-filter")!;
+    const end = root.querySelector<HTMLSelectElement>("#end-date-filter")!;
+    const dates = ["2024-01-01", "2024-02-01", "2024-03-01"];
+    expect(dateRange.contains(start)).toBe(true);
+    expect(dateRange.contains(end)).toBe(true);
+    expect([...start.options].map((option) => option.value)).toEqual(dates);
+    expect([...end.options].map((option) => option.value)).toEqual(dates);
+    expect(start.value).toBe("2024-01-01");
+    expect(end.value).toBe("2024-03-01");
+
+    start.value = "2024-03-01";
+    start.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().result_view.filters).toMatchObject({
+      start_date: "2024-03-01",
+      end_date: "2024-03-01",
+    });
+    expect([...end.options].filter((option) => option.disabled).map((option) => option.value))
+      .toEqual(["2024-01-01", "2024-02-01"]);
+
+    end.value = "2024-01-01";
+    end.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(controller.getState().result_view.filters).toMatchObject({
+      start_date: "2024-01-01",
+      end_date: "2024-01-01",
+    });
+    expect(analyze).toHaveBeenCalledOnce();
+
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    expect(css).toMatch(/\.date-range-filter\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*grid-template-columns:\s*repeat\(2,/s);
+  });
+
+  it("shows CUSUM values to two decimals without changing analytical precision", async () => {
+    const preciseCusum = 19.079492;
+    const records = [{
+      ...record(1, true),
+      area: "Area A",
+      date: "2024-01-01",
+      cusum: preciseCusum,
+    }];
+    const { root, controller } = setup(completedResult(records));
+    await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
+    controller.runAnalysis();
+
+    const metrics = [...root.querySelectorAll<HTMLElement>("#analysis-summary > div")];
+    const maximum = metrics.find((metric) => metric.querySelector("dt")?.textContent === "Maximum CUSUM")!;
+    expect(maximum.querySelector("dd")?.textContent).toBe("19.08");
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("highest displayed CUSUM 19.08");
+    const headers = [...root.querySelectorAll("#processed-table-container thead th")]
+      .map((header) => header.textContent);
+    const cusumIndex = headers.indexOf("CUSUM");
+    const cells = root.querySelectorAll("#processed-table-container tbody tr:first-child td");
+    expect(cells[cusumIndex]?.textContent).toBe("19.08");
+    const result = controller.getState().analysis_result;
+    expect(result?.success === true ? result.records[0]?.cusum : null).toBe(preciseCusum);
+  });
+
   it("supports Select all and Clear all for the non-stratified Areas checklist", async () => {
     const records = ["Area A", "Area B", "Area C"].map((area, index) => ({
       ...record(index + 1, false),
@@ -625,7 +693,10 @@ describe("Results, alerts, and Help", () => {
     expect(root.querySelectorAll(".sample-link")).toHaveLength(5);
     expect(root.querySelector("#help-dialog")?.textContent).toContain("About this tool");
     expect(root.querySelector("#help-dialog")?.textContent).toContain(
-      "Select Custom to specify your own CUSUM settings",
+      "If you are unsure where to begin, use Default (HIV)",
+    );
+    expect(root.querySelector("#help-dialog")?.textContent).toContain(
+      "one alert episode rather than 10 separate alerts",
     );
     expect(root.querySelector("#help-dialog")?.textContent).toContain("About CUSUM");
     const body = root.querySelector<HTMLElement>(".help-dialog-body")!;
@@ -651,8 +722,11 @@ describe("Results, alerts, and Help", () => {
       ["Understanding the graph and alerts", "#help-graph"],
       ["Display filters", "#help-filters"],
       ["Exporting results", "#help-exporting"],
-      ["Privacy and browser session", "#help-privacy"],
+      ["Detailed results", "#help-detailed-results"],
+      ["Privacy and security", "#help-privacy"],
       ["Troubleshooting", "#help-troubleshooting"],
+      ["About CUSUM", "#help-about-cusum"],
+      ["Contact information", "#help-contact"],
     ] as const;
     const navigation = root.querySelector<HTMLElement>(".help-section-nav")!;
     const links = [...navigation.querySelectorAll<HTMLAnchorElement>("a")];
@@ -662,26 +736,25 @@ describe("Results, alerts, and Help", () => {
     expect(navigation.textContent).not.toContain("Contents");
     const headings = [...root.querySelectorAll(".help-dialog-body > section > h3")]
       .map((heading) => heading.textContent);
-    expect(headings).toEqual([...expectedSections.map(([heading]) => heading), "About CUSUM"]);
+    expect(headings).toEqual(expectedSections.map(([heading]) => heading));
     expect(headings.every((heading) => !/^\d+\./.test(heading ?? ""))).toBe(true);
 
     const disclosures = [...root.querySelectorAll<HTMLDetailsElement>(".help-troubleshooting details")];
-    expect(disclosures).toHaveLength(6);
+    expect(disclosures).toHaveLength(8);
     expect(disclosures.every((details) => !details.open)).toBe(true);
     disclosures[0]?.querySelector("summary")?.click();
     expect(disclosures[0]?.open).toBe(true);
     expect(disclosures.slice(1).every((details) => !details.open)).toBe(true);
 
     root.querySelector<HTMLButtonElement>("#help-button")!.click();
-    const summaries = [...root.querySelectorAll<HTMLElement>(".help-troubleshooting summary")];
-    const lastSummary = summaries.at(-1)!;
-    lastSummary.focus();
-    lastSummary.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    const lastFocusable = root.querySelector<HTMLAnchorElement>('a[href="mailto:steven.erly@doh.wa.gov"]')!;
+    lastFocusable.focus();
+    lastFocusable.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
     expect(document.activeElement).toBe(root.querySelector("#close-help"));
     root.querySelector<HTMLButtonElement>("#close-help")!.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }),
     );
-    expect(document.activeElement).toBe(lastSummary);
+    expect(document.activeElement).toBe(lastFocusable);
     root.querySelector<HTMLButtonElement>("#close-help")!.click();
   });
 
@@ -693,7 +766,23 @@ describe("Results, alerts, and Help", () => {
     expect(root.querySelector('pre[aria-label="Stratified CSV format"]')?.textContent).toBe(
       "area,date,count,strata\nArea A,2024-01-01,5,Group 1\nArea A,2024-02-01,7,Group 1",
     );
-    expect(root.querySelector("#help-dialog")?.textContent?.toLowerCase()).not.toContain("risk group");
+    const helpText = root.querySelector("#help-dialog")?.textContent ?? "";
+    expect(helpText.toLowerCase()).not.toMatch(/risk[_ ]groups?/);
+    expect(helpText).not.toContain("HIV preset");
+    expect(root.querySelector("#help-settings")?.textContent).toContain("Default (HIV)");
+    expect(root.querySelector("#help-settings")?.textContent).toContain("Default: 4");
+    expect(root.querySelectorAll("#help-settings .help-setting-default")).toHaveLength(4);
+    expect(root.querySelector("#help-graph")?.textContent).toContain(
+      "A continuous period where CUSUM remains above the alert threshold is counted as one alert episode.",
+    );
+    expect(root.querySelector<HTMLAnchorElement>('a[href="https://github.com/CDCgov/MicrobeTrace"]'))
+      .not.toBeNull();
+    expect(root.querySelector<HTMLAnchorElement>('a[href="https://github.com/tiffani-hao/cusum-browser-app"]'))
+      .not.toBeNull();
+    expect(root.querySelector<HTMLAnchorElement>('a[href="https://pubmed.ncbi.nlm.nih.gov/42156236/"]'))
+      .not.toBeNull();
+    expect(root.querySelector<HTMLAnchorElement>('a[href="mailto:steven.erly@doh.wa.gov"]')?.textContent)
+      .toBe("steven.erly@doh.wa.gov");
     expect(root.querySelector<HTMLAnchorElement>('a[download="cusum-strata-example.csv"]')?.href)
       .toContain("/sample-data/strata-example.csv");
     const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
@@ -701,6 +790,7 @@ describe("Results, alerts, and Help", () => {
     expect(css).toContain("height: min(88vh, 56rem)");
     expect(css).toContain("grid-template-rows: auto minmax(0, 1fr)");
     expect(css).toContain("height: 100vh");
+    expect(css).toMatch(/\.help-dialog-body p,[\s\S]*\.help-dialog-body address \{[\s\S]*color: var\(--text-secondary\);[\s\S]*font-size: 0\.92rem;/);
   });
 });
 

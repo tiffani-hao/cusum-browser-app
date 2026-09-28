@@ -1,5 +1,7 @@
 import type { ProcessedCusumRecord } from "../core";
 import {
+  formatCusumForDisplay,
+  formatNormalizedCountForDisplay,
   formatResultNumber,
   paginateRecords,
   PROCESSED_PAGE_SIZES,
@@ -53,8 +55,8 @@ export function renderProcessedTable(
     ...(includesRisk ? [{ label: "Strata", value: (record: ProcessedCusumRecord) => record.risk_group ?? "" }] : []),
     { label: "Date", value: (record) => record.date },
     { label: "Count", value: (record) => String(record.count) },
-    { label: "Normalized count", value: (record) => formatResultNumber(record.normalized_count) },
-    { label: "CUSUM", value: (record) => formatResultNumber(record.cusum) },
+    { label: "Normalized count", value: (record) => formatNormalizedCountForDisplay(record.normalized_count) },
+    { label: "CUSUM", value: (record) => formatCusumForDisplay(record.cusum) },
     { label: "Threshold", value: (record) => formatResultNumber(record.threshold) },
     { label: "Alert status", value: (record) => record.is_alert ? "Alert" : "No alert" },
   ];
