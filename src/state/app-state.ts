@@ -179,19 +179,19 @@ export class AppStateStore {
     };
   }
 
-  setSeriesWithAlertsOnly(enabled: boolean): void {
+  setSeriesWithActiveAlertsOnly(enabled: boolean): void {
     this.current = {
       ...this.current,
       result_view: {
         ...this.current.result_view,
         filters: {
           ...this.current.result_view.filters,
-          series_with_alerts_only: enabled,
+          series_with_active_alerts_only: enabled,
         },
         export_message: "",
       },
       message: enabled
-        ? "Only selected series with alert episodes are shown on the chart. CUSUM was not recalculated."
+        ? "Only selected series with currently active alerts are shown on the chart. CUSUM was not recalculated."
         : "All selected series are shown on the chart. CUSUM was not recalculated.",
     };
   }

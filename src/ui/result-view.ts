@@ -141,8 +141,8 @@ export class ResultView {
         result.summary.baseline_window,
         result.summary.analysis_interval,
         result.records,
-        state.result_view.filters.series_with_alerts_only
-          ? "No selected series within the current display filters has an alert episode. Adjust the filters or turn off Show Only Series with Alerts."
+        state.result_view.filters.series_with_active_alerts_only
+          ? "No selected series within the current display filters has an active alert. Adjust the filters or turn off Show Only Series with Active Alerts."
           : undefined,
       );
       this.setChartInteractionStatus("");
@@ -255,17 +255,17 @@ export class ResultView {
       availableSeries.length > MAX_DISPLAYED_CHART_SERIES
         ? `The first ${MAX_DISPLAYED_CHART_SERIES} of ${availableSeries.length.toLocaleString()} series are selected by default; all remain available here.`
         : "All series are selected by default.";
-    const alertSeriesOnly = requiredElement<HTMLInputElement>(this.root, "#series-with-alerts-filter");
+    const activeAlertSeriesOnly = requiredElement<HTMLInputElement>(this.root, "#series-with-active-alerts-filter");
     const startDate = requiredElement<HTMLSelectElement>(this.root, "#start-date-filter");
     const endDate = requiredElement<HTMLSelectElement>(this.root, "#end-date-filter");
     const availableDates = uniqueResultDates(result.records);
-    alertSeriesOnly.checked = filters.series_with_alerts_only;
+    activeAlertSeriesOnly.checked = filters.series_with_active_alerts_only;
     renderDateOptions(startDate, availableDates, filters.start_date, filters.end_date, "start");
     renderDateOptions(endDate, availableDates, filters.end_date, filters.start_date, "end");
     areaControl.disabled = disabled;
     riskControl.disabled = disabled;
     seriesControl.disabled = disabled;
-    alertSeriesOnly.disabled = disabled;
+    activeAlertSeriesOnly.disabled = disabled;
     startDate.disabled = disabled || availableDates.length === 0;
     endDate.disabled = disabled || availableDates.length === 0;
     requiredElement<HTMLButtonElement>(this.root, "#reset-display-filters").disabled = disabled;
@@ -274,7 +274,7 @@ export class ResultView {
         selected_areas: selectedCheckboxValues(area),
         selected_risk_groups: selectedCheckboxValues(risk),
         selected_series: selectedCheckboxValues(series),
-        series_with_alerts_only: filters.series_with_alerts_only,
+        series_with_active_alerts_only: filters.series_with_active_alerts_only,
         start_date: startDate.value,
         end_date: endDate.value,
       });
@@ -306,8 +306,8 @@ export class ResultView {
       series,
       update,
     );
-    replaceChangeHandler(alertSeriesOnly, () => {
-      this.store.setSeriesWithAlertsOnly(alertSeriesOnly.checked);
+    replaceChangeHandler(activeAlertSeriesOnly, () => {
+      this.store.setSeriesWithActiveAlertsOnly(activeAlertSeriesOnly.checked);
       this.dependencies.requestRender();
     });
     replaceChangeHandler(startDate, () => {
@@ -495,8 +495,8 @@ function resultMarkup(): string {
           <small id="series-default-help"></small>
         </fieldset>
         <div class="filter-control">
-          <label class="toggle-label compact"><input id="series-with-alerts-filter" type="checkbox" /> Show Only Series with Alerts</label>
-          <small>Show the full history of selected series that have at least one alert episode.</small>
+          <label class="toggle-label compact"><input id="series-with-active-alerts-filter" type="checkbox" /> Show Only Series with Active Alerts</label>
+          <small>Show the full history of selected series whose latest analyzed period is currently in an alert state.</small>
         </div>
         <div class="date-range-filter" role="group" aria-label="Display date range">
           <label class="filter-control">Display start date<select id="start-date-filter"></select></label>
@@ -514,7 +514,8 @@ function resultMarkup(): string {
           <button id="expand-chart" class="button button-secondary" type="button" aria-haspopup="dialog" aria-controls="expanded-chart-dialog" aria-expanded="false">Expand chart</button>
         </div>
       </div>
-      <p>The dashed line is the alert threshold. A point is an alert only when CUSUM is strictly greater than the threshold.</p>
+      <p>Disease counts use the left axis with a light filled trend; CUSUM uses the right axis. The dashed line is the alert threshold. A point is an alert only when CUSUM is strictly greater than the threshold.</p>
+      <p>Move across the chart to snap the vertical guide and shared tooltip to the nearest displayed date.</p>
       <p class="chart-zoom-help">Drag across the chart to zoom on dates. Hold Shift while dragging to pan, use Control + mouse wheel or pinch to zoom, or use Reset zoom.</p>
       <p id="chart-interaction-status" class="visually-hidden" role="status" aria-live="polite"></p>
       <details class="initial-baseline-guidance">

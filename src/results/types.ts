@@ -4,7 +4,7 @@ export interface ResultDisplayFilters {
   selected_areas: string[];
   selected_risk_groups: string[];
   selected_series: string[];
-  series_with_alerts_only: boolean;
+  series_with_active_alerts_only: boolean;
   start_date: string;
   end_date: string;
 }
@@ -40,6 +40,8 @@ export interface PaginatedRecords<T = ProcessedCusumRecord> {
 
 export interface ChartPointMetadata {
   series: string;
+  area: string;
+  risk_group?: string;
   date: string;
   count: number;
   cusum: number;
@@ -48,11 +50,15 @@ export interface ChartPointMetadata {
 
 export interface CusumChartDataset {
   label: string;
+  dataset_kind: "count" | "cusum" | "threshold";
   data: (number | null)[];
   borderColor: string;
   backgroundColor: string;
   borderWidth: number;
   borderDash?: number[];
+  fill?: boolean | "origin";
+  order?: number;
+  yAxisID: "cases" | "cusum";
   pointBackgroundColor: string | string[];
   pointBorderColor: string | string[];
   pointRadius: number | number[];

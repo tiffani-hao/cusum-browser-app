@@ -204,12 +204,12 @@ describe("Application workflow", () => {
     await controller.selectFile(new File(["data"], "data.csv"));
     controller.runAnalysis();
     const creationCount = chart.render.mock.calls.length;
-    const alertSeriesOnly = root.querySelector<HTMLInputElement>("#series-with-alerts-filter");
-    if (alertSeriesOnly === null) throw new Error("Missing series-with-alerts filter.");
-    alertSeriesOnly.checked = true;
-    alertSeriesOnly.dispatchEvent(new Event("change", { bubbles: true }));
+    const activeAlertSeriesOnly = root.querySelector<HTMLInputElement>("#series-with-active-alerts-filter");
+    if (activeAlertSeriesOnly === null) throw new Error("Missing series-with-active-alerts filter.");
+    activeAlertSeriesOnly.checked = true;
+    activeAlertSeriesOnly.dispatchEvent(new Event("change", { bubbles: true }));
     expect(analyze).toHaveBeenCalledOnce();
-    expect(controller.getState().result_view.filters.series_with_alerts_only).toBe(true);
+    expect(controller.getState().result_view.filters.series_with_active_alerts_only).toBe(true);
     expect(controller.getState().result_view.processed_page).toBe(1);
     expect(chart.render.mock.calls.length).toBeGreaterThanOrEqual(creationCount);
   });

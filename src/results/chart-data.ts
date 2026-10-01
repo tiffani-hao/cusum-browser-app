@@ -37,40 +37,69 @@ export function buildCusumChartData(
     recordsBySeries.set(key, dates);
   }
 
-  const datasets: CusumChartDataset[] = independentSeries(records).map((series, index) => {
+  const datasets: CusumChartDataset[] = independentSeries(records).flatMap((series, index) => {
     const color = SERIES_COLORS[index % SERIES_COLORS.length]!;
     const dates = recordsBySeries.get(series.key) ?? new Map<string, ProcessedCusumRecord>();
     const aligned = labels.map((date) => dates.get(date) ?? null);
-    return {
-      label: series.label,
-      data: aligned.map((record) => record?.cusum ?? null),
-      borderColor: color,
-      backgroundColor: color,
-      borderWidth: 2,
-      pointBackgroundColor: aligned.map((record) => record?.is_alert === true ? "#b42318" : color),
-      pointBorderColor: aligned.map((record) => record?.is_alert === true ? "#ffffff" : color),
-      pointRadius: aligned.map((record) => record?.is_alert === true ? 5 : 2),
-      pointHoverRadius: aligned.map((record) => record?.is_alert === true ? 7 : 4),
-      tension: 0,
-      spanGaps: false,
-      records: aligned.map((record) => record === null ? null : {
-        series: series.label,
-        date: record.date,
-        count: record.count,
-        cusum: record.cusum,
-        is_alert: record.is_alert,
-      }),
-    };
+    return [
+      {
+        label: `${series.label} — Disease count`,
+        dataset_kind: "count",
+        data: aligned.map((record) => record?.count ?? null),
+        borderColor: colorWithAlpha(color, 0.52),
+        backgroundColor: colorWithAlpha(color, 0.08),
+        borderWidth: 1.25,
+        fill: "origin",
+        order: 3,
+        yAxisID: "cases",
+        pointBackgroundColor: "transparent",
+        pointBorderColor: "transparent",
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        tension: 0.12,
+        spanGaps: false,
+      },
+      {
+        label: series.label,
+        dataset_kind: "cusum",
+        data: aligned.map((record) => record?.cusum ?? null),
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: 2.25,
+        fill: false,
+        order: 2,
+        yAxisID: "cusum",
+        pointBackgroundColor: aligned.map((record) => record?.is_alert === true ? "#b42318" : color),
+        pointBorderColor: aligned.map((record) => record?.is_alert === true ? "#ffffff" : color),
+        pointRadius: aligned.map((record) => record?.is_alert === true ? 3.5 : 1),
+        pointHoverRadius: aligned.map((record) => record?.is_alert === true ? 5 : 3),
+        tension: 0,
+        spanGaps: false,
+        records: aligned.map((record) => record === null ? null : {
+          series: series.label,
+          area: record.area,
+          ...(record.risk_group === undefined ? {} : { risk_group: record.risk_group }),
+          date: record.date,
+          count: record.count,
+          cusum: record.cusum,
+          is_alert: record.is_alert,
+        }),
+      },
+    ];
   });
 
   if (labels.length > 0) {
     datasets.push({
       label: "Alert threshold",
+      dataset_kind: "threshold",
       data: labels.map(() => threshold),
       borderColor: "#231a30",
       backgroundColor: "#231a30",
       borderWidth: 2,
       borderDash: [8, 6],
+      fill: false,
+      order: 1,
+      yAxisID: "cusum",
       pointBackgroundColor: "#231a30",
       pointBorderColor: "#231a30",
       pointRadius: 0,
@@ -86,6 +115,13 @@ export function buildCusumChartData(
     datasets,
     initial_baseline_bands: initialBaselineBands(records, labels, baselineKeys),
   };
+}
+
+function colorWithAlpha(hex: string, alpha: number): string {
+  const red = Number.parseInt(hex.slice(1, 3), 16);
+  const green = Number.parseInt(hex.slice(3, 5), 16);
+  const blue = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function initialBaselineBands(

@@ -78,9 +78,11 @@ describe("in-memory application state", () => {
     store.startParsing(file);
     store.finishParsing(parsed, valid);
     store.finishAnalysis(analyzeCusum(valid.valid_records, DEFAULT_ANALYSIS_OPTIONS));
+    store.setSeriesWithActiveAlertsOnly(true);
     store.startParsing(new File(["x"], "next.csv"));
     expect(store.state.analysis_result).toBeNull();
     expect(store.state.metadata).toBeNull();
+    expect(store.state.result_view.filters.series_with_active_alerts_only).toBe(false);
   });
 
   it("marks a completed result stale when analytical settings change", () => {
@@ -96,24 +98,24 @@ describe("in-memory application state", () => {
     store.setProcessedPage(2);
     store.updateDisplayFilters({
       ...store.state.result_view.filters,
-      series_with_alerts_only: true,
+      series_with_active_alerts_only: true,
     });
-    expect(store.state.result_view.filters.series_with_alerts_only).toBe(true);
+    expect(store.state.result_view.filters.series_with_active_alerts_only).toBe(true);
     expect(store.state.result_view.processed_page).toBe(1);
     expect(store.state.result_view.result_stale).toBe(false);
     expect(store.state.status).toBe("analysis-completed");
   });
 
-  it("preserves selected series while the alert-series display toggle changes", () => {
+  it("preserves selected series while the active-alert-series display toggle changes", () => {
     const store = completedStore();
     const selectedSeries = [...store.state.result_view.filters.selected_series];
     store.setProcessedPage(2);
     store.setAlertPage(3);
-    store.setSeriesWithAlertsOnly(true);
+    store.setSeriesWithActiveAlertsOnly(true);
     expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
     expect(store.state.result_view.processed_page).toBe(2);
     expect(store.state.result_view.alert_page).toBe(3);
-    store.setSeriesWithAlertsOnly(false);
+    store.setSeriesWithActiveAlertsOnly(false);
     expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
     expect(store.state.result_view.processed_page).toBe(2);
     expect(store.state.result_view.alert_page).toBe(3);
@@ -135,11 +137,11 @@ describe("in-memory application state", () => {
     store.updateDisplayFilters({
       ...store.state.result_view.filters,
       selected_areas: [],
-      series_with_alerts_only: true,
+      series_with_active_alerts_only: true,
     });
     store.resetDisplayFilters();
     expect(store.state.result_view.filters.selected_areas).toEqual(["A"]);
-    expect(store.state.result_view.filters.series_with_alerts_only).toBe(false);
+    expect(store.state.result_view.filters.series_with_active_alerts_only).toBe(false);
     store.clearData();
     expect(store.state.result_view.filters.selected_areas).toEqual([]);
     expect(store.state.result_view.processed_page).toBe(1);

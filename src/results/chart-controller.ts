@@ -1,6 +1,7 @@
 import {
   CategoryScale,
   Chart,
+  Filler,
   Legend,
   LinearScale,
   LineController,
@@ -25,6 +26,7 @@ Chart.register(
   PointElement,
   Tooltip,
   Legend,
+  Filler,
 );
 
 export interface ChartInstance {
@@ -59,7 +61,7 @@ export class CusumChartController implements ChartRenderer {
         maintainAspectRatio: false,
         normalized: true,
         animation: false,
-        interaction: { mode: "nearest", intersect: false },
+        interaction: { mode: "index", axis: "x", intersect: false },
         scales: {
           x: {
             type: "category",
@@ -67,19 +69,33 @@ export class CusumChartController implements ChartRenderer {
             ticks: { color: "#645b70" },
             grid: { color: "#eee8f6" },
           },
-          y: {
+          cases: {
+            type: "linear",
+            position: "left",
+            min: 0,
+            title: { display: true, text: "Disease Count / Cases", color: "#41206b" },
+            ticks: { color: "#645b70" },
+            grid: { color: "#eee8f6" },
+          },
+          cusum: {
+            type: "linear",
+            position: "right",
             min: 0,
             title: { display: true, text: "CUSUM", color: "#41206b" },
             ticks: { color: "#645b70" },
-            grid: { color: "#eee8f6" },
+            grid: { drawOnChartArea: false },
           },
         },
         plugins: {
           legend: { display: false },
           tooltip: {
+            mode: "index",
+            intersect: false,
+            filter: (item) => (item.dataset as unknown as CusumChartDataset).dataset_kind === "cusum",
             callbacks: {
-              title: (items) => items[0]?.label ?? "",
+              title: (items) => items[0]?.label === undefined ? "" : `Date: ${items[0].label}`,
               label: (item: TooltipItem<"line">) => tooltipLines(item),
+              footer: () => `Alert threshold: ${formatCusumForDisplay(thresholdValue(data))}`,
             },
           },
           zoom: {
@@ -107,7 +123,10 @@ export class CusumChartController implements ChartRenderer {
           },
         },
       },
-      plugins: [initialBaselinePeriodPlugin(data.initial_baseline_bands)],
+      plugins: [
+        initialBaselinePeriodPlugin(data.initial_baseline_bands),
+        verticalHoverGuidePlugin(),
+      ],
     });
   }
 
@@ -169,14 +188,39 @@ function initialBaselinePeriodPlugin(
 
 function tooltipLines(item: TooltipItem<"line">): string | string[] {
   const dataset = item.dataset as unknown as CusumChartDataset;
-  if (dataset.threshold_line === true) return `Alert threshold: ${String(item.raw)}`;
   const record = dataset.records?.[item.dataIndex];
   if (record === null || record === undefined) return dataset.label;
   return [
-    `Series: ${record.series}`,
-    `Date: ${record.date}`,
+    `Area: ${record.area}`,
+    ...(record.risk_group === undefined ? [] : [`Strata: ${record.risk_group}`]),
     `Count: ${record.count}`,
     `CUSUM: ${formatCusumForDisplay(record.cusum)}`,
     `Alert: ${record.is_alert ? "Yes" : "No"}`,
   ];
+}
+
+function thresholdValue(data: CusumChartData): number {
+  const threshold = data.datasets.find((dataset) => dataset.dataset_kind === "threshold")?.data[0];
+  return typeof threshold === "number" ? threshold : 0;
+}
+
+function verticalHoverGuidePlugin(): Plugin<"line"> {
+  return {
+    id: "vertical-hover-guide",
+    afterDatasetsDraw(chart) {
+      const active = chart.getActiveElements();
+      const x = active[0]?.element.x;
+      if (x === undefined) return;
+      const { top, bottom } = chart.chartArea;
+      chart.ctx.save();
+      chart.ctx.beginPath();
+      chart.ctx.setLineDash([3, 3]);
+      chart.ctx.moveTo(x, top);
+      chart.ctx.lineTo(x, bottom);
+      chart.ctx.lineWidth = 1;
+      chart.ctx.strokeStyle = "rgba(65, 32, 107, 0.48)";
+      chart.ctx.stroke();
+      chart.ctx.restore();
+    },
+  };
 }

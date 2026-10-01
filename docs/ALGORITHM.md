@@ -28,7 +28,7 @@ Date operations use UTC calendar logic. Processed records are ordered by area, s
 
 ## Preprocessing
 
-Rows that share an independent series and standardized period are aggregated by summing their counts. Missing periods between the earliest and latest period in each series are then inserted with a count of zero.
+Rows that share an independent series and standardized period are aggregated by summing their counts. The earliest and latest standardized periods are then determined across the complete dataset. Every independent series is completed across that same inclusive global period range, inserting a count of zero for leading, internal, or trailing missing periods.
 
 By default, each area is an independent series. When stratification is enabled, each area and strata combination is independent. CUSUM state never carries from one series into another.
 

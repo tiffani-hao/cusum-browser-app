@@ -166,7 +166,7 @@ Area A,2024-02-01,7,Group 1</pre>
 
           <section id="help-graph" tabindex="-1">
             <h3>Understanding the graph and alerts</h3>
-            <p>Each colored line represents one displayed time series.</p>
+            <p>Each displayed time series includes a disease-count line with a light filled area and a CUSUM line aligned to the same dates.</p>
             <ul>
               <li>Without stratification, each series represents an Area.</li>
               <li>With stratification, each series represents an Area–Strata combination.</li>
@@ -174,11 +174,13 @@ Area A,2024-02-01,7,Group 1</pre>
             <p>On the graph:</p>
             <ul>
               <li>The horizontal axis shows time.</li>
-              <li>The vertical axis shows the CUSUM statistic.</li>
+              <li>The left vertical axis shows Disease Count / Cases.</li>
+              <li>The right vertical axis shows the CUSUM statistic.</li>
               <li>The dashed line shows the alert threshold.</li>
               <li>Highlighted points indicate periods where CUSUM is above the threshold.</li>
               <li>The grey region shows the Initial baseline period.</li>
             </ul>
+            <p>Moving across the chart displays a vertical guide at the nearest available date and one shared tooltip with the count, CUSUM value, and alert status for every visible series.</p>
             <p>For long time series, users can scroll horizontally and zoom in for more detail. Reset zoom returns to the full view, and Expand chart opens a larger visualization.</p>
             <p>Scrolling, zooming, expanding, and changing display filters affect visualization only and do not recalculate the analysis.</p>
             <p>CUSUM values shown in the graph tooltip and summary display are rounded for readability. Full-precision values remain available internally for analysis.</p>
@@ -220,9 +222,9 @@ Area A,2024-02-01,7,Group 1</pre>
             <p>Checkboxes make the current selection explicit, and “Select all” and “Clear all” can be used to quickly change the displayed options.</p>
             <p>For non-stratified analyses, only the Areas filter is needed.</p>
             <p>For analyses with more than 20 series, the first 20 series are selected for display by default. All series are still analyzed and remain available for selection.</p>
-            <h4>Show Only Series with Alerts</h4>
-            <p>When enabled, the graph displays only selected series that have at least one alert episode.</p>
-            <p>The entire time series remains visible, not just the periods during which an alert occurred.</p>
+            <h4>Show Only Series with Active Alerts</h4>
+            <p>When enabled, the graph displays only selected series whose latest analyzed period is currently in an alert state. Series with only past, inactive alert episodes are excluded.</p>
+            <p>The entire selected date range remains visible for each matching series, not just the periods during which an alert occurred.</p>
             <h4>Display date range</h4>
             <p>The start and end date controls determine which portion of the analyzed time series is displayed.</p>
             <p>Only dates available in the processed analysis data can be selected.</p>

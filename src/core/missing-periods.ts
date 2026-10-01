@@ -10,6 +10,10 @@ export function fillMissingPeriods(
   records: AggregatedRecord[],
   interval: AnalysisInterval,
 ): CompletedPeriodRecord[] {
+  if (records.length === 0) return [];
+  const dates = records.map((record) => record.date);
+  const globalStart = dates.reduce((earliest, date) => date < earliest ? date : earliest);
+  const globalEnd = dates.reduce((latest, date) => date > latest ? date : latest);
   const groups = new Map<string, AggregatedRecord[]>();
   for (const record of records) {
     const group = groups.get(record.series_key) ?? [];
@@ -20,11 +24,10 @@ export function fillMissingPeriods(
   for (const group of groups.values()) {
     group.sort(compareRecords);
     const first = group[0];
-    const last = group[group.length - 1];
-    if (first === undefined || last === undefined) continue;
+    if (first === undefined) continue;
     const byDate = new Map(group.map((record) => [record.date, record]));
-    let date = first.date;
-    while (date <= last.date) {
+    let date = globalStart;
+    while (date <= globalEnd) {
       const record = byDate.get(date);
       completed.push(record ?? {
         area: first.area,

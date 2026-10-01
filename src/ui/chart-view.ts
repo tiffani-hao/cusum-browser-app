@@ -30,7 +30,7 @@ export function renderChartView(
 ): void {
   const chartData = buildCusumChartData(records, threshold, baselineWindow, baselineReferenceRecords);
   const baselineKeys = initialBaselinePeriodRecordKeys(baselineReferenceRecords, baselineWindow);
-  const seriesCount = chartData.datasets.filter((dataset) => dataset.threshold_line !== true).length;
+  const seriesCount = chartData.datasets.filter((dataset) => dataset.dataset_kind === "cusum").length;
   const alertCount = countDisplayedAlertEpisodes(records, baselineReferenceRecords);
   const baselineCount = records.filter((record) =>
     isInitialBaselinePeriodRecord(record, baselineKeys)

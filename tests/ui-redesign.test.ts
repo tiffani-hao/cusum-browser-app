@@ -509,10 +509,10 @@ describe("Results, alerts, and Help", () => {
     ]);
   });
 
-  it("shows full selected series with alert episodes and restores the selection when toggled off", async () => {
+  it("shows full selected series with active alerts and restores the selection when toggled off", async () => {
     const records = [
-      { ...record(1, true), area: "Area A", date: "2024-01-01" },
-      { ...record(2, false), area: "Area A", date: "2024-02-01" },
+      { ...record(1, false), area: "Area A", date: "2024-01-01" },
+      { ...record(2, true), area: "Area A", date: "2024-02-01" },
       { ...record(3, false), area: "Area B", date: "2024-01-01" },
       { ...record(4, false), area: "Area B", date: "2024-02-01" },
     ];
@@ -521,8 +521,8 @@ describe("Results, alerts, and Help", () => {
     controller.runAnalysis();
     const originalSelection = [...controller.getState().result_view.filters.selected_series];
     const originalAreas = checkedCheckboxLabels(root, "#area-filter");
-    const toggle = root.querySelector<HTMLInputElement>("#series-with-alerts-filter")!;
-    expect(toggle.parentElement?.textContent).toContain("Show Only Series with Alerts");
+    const toggle = root.querySelector<HTMLInputElement>("#series-with-active-alerts-filter")!;
+    expect(toggle.parentElement?.textContent).toContain("Show Only Series with Active Alerts");
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().result_view.filters.selected_series).toEqual(originalSelection);
@@ -537,7 +537,7 @@ describe("Results, alerts, and Help", () => {
     expect(analyze).toHaveBeenCalledOnce();
   });
 
-  it("shows an explanatory empty chart when no selected series has alerts", async () => {
+  it("shows an explanatory empty chart when no selected series has an active alert", async () => {
     const records = [
       { ...record(1, false), area: "Area A", date: "2024-01-01" },
       { ...record(2, false), area: "Area B", date: "2024-01-01" },
@@ -545,12 +545,12 @@ describe("Results, alerts, and Help", () => {
     const { root, controller } = setup(completedResult(records));
     await controller.selectFile(new File(["synthetic"], "synthetic.csv"));
     controller.runAnalysis();
-    const toggle = root.querySelector<HTMLInputElement>("#series-with-alerts-filter")!;
+    const toggle = root.querySelector<HTMLInputElement>("#series-with-active-alerts-filter")!;
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
     const empty = root.querySelector<HTMLElement>("#chart-empty")!;
     expect(empty.hidden).toBe(false);
-    expect(empty.textContent).toContain("No selected series within the current display filters has an alert episode");
+    expect(empty.textContent).toContain("No selected series within the current display filters has an active alert");
   });
 
   it("shows four approved KPI cards without duplicated settings", async () => {

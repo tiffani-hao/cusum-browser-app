@@ -61,7 +61,7 @@ describe("large synthetic-data performance observations", () => {
     started = performance.now();
     const chart = buildCusumChartData(analysis.records, OPTIONS.threshold);
     timings.chart_data_ms = performance.now() - started;
-    expect(chart.datasets.length).toBe(generated.series_count + 1);
+    expect(chart.datasets.length).toBe(generated.series_count * 2 + 1);
 
     started = performance.now();
     const page = paginateRecords(analysis.records, 1, 100);

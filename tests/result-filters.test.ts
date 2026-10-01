@@ -115,7 +115,7 @@ describe("result selectors and display filters", () => {
     expect(filterProcessedRecords(records, filters)).toHaveLength(3);
   });
 
-  it("shows the full history of selected series with active or inactive alert episodes", () => {
+  it("shows the full history only for selected series with currently active alerts", () => {
     const alertSeriesRecords = [
       makeRecord("A", "2024-01-01", false, "Group 1"),
       makeRecord("A", "2024-02-01", true, "Group 1"),
@@ -128,62 +128,81 @@ describe("result selectors and display filters", () => {
     const defaults = createDefaultDisplayFilters(alertSeriesRecords);
     const filtered = filterChartRecords(alertSeriesRecords, {
       ...defaults,
-      series_with_alerts_only: true,
+      series_with_active_alerts_only: true,
     });
     expect(filtered.map((record) => `${record.area}/${record.date}/${record.is_alert}`)).toEqual([
-      "A/2024-01-01/false",
-      "A/2024-02-01/true",
-      "A/2024-03-01/false",
       "C/2024-01-01/false",
       "C/2024-02-01/true",
     ]);
     expect(filterProcessedRecords(alertSeriesRecords, {
       ...defaults,
-      series_with_alerts_only: true,
+      series_with_active_alerts_only: true,
     })).toEqual(alertSeriesRecords);
   });
 
-  it("finds alert series from the complete analysis outside the display date range", () => {
+  it("determines active status from the complete analysis outside the display date range", () => {
     const datedRecords = [
-      makeRecord("A", "2024-01-01", true),
-      makeRecord("A", "2024-02-01", false),
+      makeRecord("A", "2024-01-01", false),
+      makeRecord("A", "2024-02-01", true),
+      makeRecord("B", "2024-01-01", true),
       makeRecord("B", "2024-02-01", false),
     ];
     const filters = {
       ...createDefaultDisplayFilters(datedRecords),
-      series_with_alerts_only: true,
-      start_date: "2024-02-01",
-      end_date: "2024-02-01",
+      series_with_active_alerts_only: true,
+      start_date: "2024-01-01",
+      end_date: "2024-01-01",
     };
-    expect(filterChartRecords(datedRecords, filters)).toEqual([datedRecords[1]]);
+    expect(filterChartRecords(datedRecords, filters)).toEqual([datedRecords[0]]);
   });
 
-  it("applies the Area filter on top of selected alert series without changing selection", () => {
+  it("applies Area and Strata filters on top of active-alert series without changing selection", () => {
     const areaRecords = [
-      makeRecord("A", "2024-01-01", true, "Group 1"),
-      makeRecord("A", "2024-02-01", false, "Group 1"),
-      makeRecord("B", "2024-01-01", true, "Group 1"),
-      makeRecord("B", "2024-02-01", false, "Group 1"),
+      makeRecord("A", "2024-01-01", false, "Group 1"),
+      makeRecord("A", "2024-02-01", true, "Group 1"),
+      makeRecord("A", "2024-01-01", false, "Group 2"),
+      makeRecord("A", "2024-02-01", true, "Group 2"),
+      makeRecord("B", "2024-01-01", false, "Group 1"),
+      makeRecord("B", "2024-02-01", true, "Group 1"),
     ];
     const defaults = createDefaultDisplayFilters(areaRecords);
     const filters = {
       ...defaults,
       selected_areas: ["A"],
-      series_with_alerts_only: true,
+      selected_risk_groups: ["Group 2"],
+      series_with_active_alerts_only: true,
     };
-    expect(filterChartRecords(areaRecords, filters).map((record) => record.area)).toEqual(["A", "A"]);
+    expect(filterChartRecords(areaRecords, filters).map((record) =>
+      `${record.area}/${record.risk_group}/${record.date}`
+    )).toEqual([
+      "A/Group 2/2024-01-01",
+      "A/Group 2/2024-02-01",
+    ]);
     expect(filters.selected_series).toEqual(defaults.selected_series);
   });
 
-  it("returns an empty chart selection when no selected series has an alert episode", () => {
+  it("returns an empty chart selection when alerts are historical or absent", () => {
     const noAlertRecords = [
-      makeRecord("A", "2024-01-01", false),
+      makeRecord("A", "2024-01-01", true),
+      makeRecord("A", "2024-02-01", false),
       makeRecord("B", "2024-01-01", false),
     ];
     expect(filterChartRecords(noAlertRecords, {
       ...createDefaultDisplayFilters(noAlertRecords),
-      series_with_alerts_only: true,
+      series_with_active_alerts_only: true,
     })).toEqual([]);
+  });
+
+  it("uses the existing is_alert state instead of independently comparing CUSUM and threshold", () => {
+    const engineRecords = [
+      { ...makeRecord("A", "2024-01-01", false), cusum: 99, threshold: 3 },
+      { ...makeRecord("B", "2024-01-01", true), cusum: 4, threshold: 3 },
+    ];
+    const filtered = filterChartRecords(engineRecords, {
+      ...createDefaultDisplayFilters(engineRecords),
+      series_with_active_alerts_only: true,
+    });
+    expect(filtered).toEqual([engineRecords[1]]);
   });
 
   it("filters alert episodes by series fields and overlapping date range", () => {

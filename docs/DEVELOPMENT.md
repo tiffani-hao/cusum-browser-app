@@ -53,7 +53,7 @@ Selecting a new file removes the preceding file and result state before parsing 
 Analysis settings and display filters have separate behavior:
 
 - Changing interval, smoothing window, baseline window, K, threshold, stratification, or preset marks a completed result stale. The user must run analysis again before viewing current results or exporting them.
-- Area, strata, alert-only, date-range, series, and pagination controls operate on the existing completed result. They never call `analyzeCusum` or change analytical values.
+- Area, strata, active-alert-only, date-range, series, and pagination controls operate on the existing completed result. They never call `analyzeCusum` or change analytical values. The active-alert-only control uses the same active episode state as the alert dashboard and includes a series only when its latest analyzed period remains in alert.
 
 Restore Defaults returns the settings to the HIV preset without clearing the selected file or running analysis.
 

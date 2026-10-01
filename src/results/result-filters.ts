@@ -20,7 +20,7 @@ export function createDefaultDisplayFilters(records: ProcessedCusumRecord[]): Re
     selected_areas: stratified ? uniqueAreas(records) : defaultSeries.map((option) => option.area),
     selected_risk_groups: uniqueRiskGroups(records),
     selected_series: stratified ? defaultSeries.map((option) => option.key) : [],
-    series_with_alerts_only: false,
+    series_with_active_alerts_only: false,
     start_date: dates[0] ?? "",
     end_date: dates.at(-1) ?? "",
   };
@@ -32,7 +32,7 @@ export function createInitialResultViewState(): ResultViewState {
       selected_areas: [],
       selected_risk_groups: [],
       selected_series: [],
-      series_with_alerts_only: false,
+      series_with_active_alerts_only: false,
       start_date: "",
       end_date: "",
     },
@@ -88,13 +88,17 @@ export function filterChartRecords(
 ): ProcessedCusumRecord[] {
   const stratified = records.some((record) => record.risk_group !== undefined);
   const selectedSeries = stratified ? new Set(filters.selected_series) : null;
-  const seriesWithAlerts = filters.series_with_alerts_only
-    ? new Set(identifyAlertEpisodes(records).map((episode) => seriesKey(episode)))
+  const seriesWithActiveAlerts = filters.series_with_active_alerts_only
+    ? new Set(
+      identifyAlertEpisodes(records)
+        .filter((episode) => episode.is_active)
+        .map((episode) => seriesKey(episode)),
+    )
     : null;
   return filterProcessedRecords(records, filters).filter((record) => {
     const key = seriesKey(record);
     return (selectedSeries === null || selectedSeries.has(key)) &&
-      (seriesWithAlerts === null || seriesWithAlerts.has(key));
+      (seriesWithActiveAlerts === null || seriesWithActiveAlerts.has(key));
   });
 }
 
