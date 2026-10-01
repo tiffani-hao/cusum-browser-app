@@ -9,7 +9,7 @@ import {
   PointElement,
   Tooltip,
 } from "chart.js";
-import type { ChartConfiguration, Plugin, TooltipItem } from "chart.js";
+import type { ChartConfiguration, Plugin, TooltipItem, TooltipModel } from "chart.js";
 import type {} from "chartjs-plugin-zoom";
 import type {
   ChartInitialBaselineBand,
@@ -48,6 +48,7 @@ const defaultFactory: ChartFactory = (canvas, configuration) => new Chart(canvas
 
 export class CusumChartController implements ChartRenderer {
   private chart: ChartInstance | null = null;
+  private tooltip: HTMLElement | null = null;
 
   constructor(private readonly factory: ChartFactory = defaultFactory) {}
 
@@ -89,9 +90,12 @@ export class CusumChartController implements ChartRenderer {
         plugins: {
           legend: { display: false },
           tooltip: {
+            enabled: false,
             mode: "index",
             intersect: false,
+            position: "nearest",
             filter: (item) => (item.dataset as unknown as CusumChartDataset).dataset_kind === "cusum",
+            external: ({ tooltip }) => this.renderTooltip(canvas, tooltip),
             callbacks: {
               title: (items) => items[0]?.label === undefined ? "" : `Date: ${items[0].label}`,
               label: (item: TooltipItem<"line">) => tooltipLines(item),
@@ -133,6 +137,8 @@ export class CusumChartController implements ChartRenderer {
   clear(): void {
     this.chart?.destroy();
     this.chart = null;
+    this.tooltip?.remove();
+    this.tooltip = null;
   }
 
   resize(): void {
@@ -142,6 +148,91 @@ export class CusumChartController implements ChartRenderer {
   resetZoom(): void {
     this.chart?.resetZoom?.();
   }
+
+  private renderTooltip(canvas: HTMLCanvasElement, model: TooltipModel<"line">): void {
+    const tooltip = this.tooltip ?? createChartTooltip();
+    if (this.tooltip === null) {
+      this.tooltip = tooltip;
+      (canvas.parentElement ?? canvas).append(tooltip);
+    }
+    if (model.opacity === 0) {
+      if (!tooltip.matches(":hover")) tooltip.hidden = true;
+      return;
+    }
+
+    const header = requiredTooltipPart(tooltip, ".chart-tooltip-header");
+    const body = requiredTooltipPart(tooltip, ".chart-tooltip-body");
+    const footer = requiredTooltipPart(tooltip, ".chart-tooltip-footer");
+    header.replaceChildren(...model.title.map((line) => tooltipLine(line)));
+    body.replaceChildren(...model.body.map((item) => {
+      const group = document.createElement("div");
+      group.className = "chart-tooltip-item";
+      group.append(...item.before.map((line) => tooltipLine(line)));
+      group.append(...item.lines.map((line) => tooltipLine(line)));
+      group.append(...item.after.map((line) => tooltipLine(line)));
+      return group;
+    }));
+    footer.replaceChildren(...model.footer.map((line) => tooltipLine(line)));
+    footer.hidden = model.footer.length === 0;
+    tooltip.hidden = false;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const parent = tooltip.parentElement;
+    if (parent === null) return;
+    const parentRect = parent.getBoundingClientRect();
+    const viewportRect = canvas.closest<HTMLElement>(".chart-viewport")?.getBoundingClientRect();
+    const visibleLeft = Math.max(canvasRect.left, viewportRect?.left ?? canvasRect.left, 0);
+    const visibleRight = Math.min(canvasRect.right, viewportRect?.right ?? canvasRect.right, window.innerWidth);
+    const visibleTop = Math.max(canvasRect.top, viewportRect?.top ?? canvasRect.top, 0);
+    const visibleBottom = Math.min(canvasRect.bottom, viewportRect?.bottom ?? canvasRect.bottom, window.innerHeight);
+    const availableHeight = Math.max(96, visibleBottom - visibleTop - 16);
+    tooltip.style.maxHeight = `${availableHeight}px`;
+
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const gap = 12;
+    const anchorX = canvasRect.left + model.caretX;
+    const anchorY = canvasRect.top + model.caretY;
+    let left = anchorX + gap;
+    if (left + tooltipRect.width > visibleRight) left = anchorX - tooltipRect.width - gap;
+    left = clamp(left, visibleLeft, Math.max(visibleLeft, visibleRight - tooltipRect.width));
+    let top = anchorY + gap;
+    if (top + tooltipRect.height > visibleBottom) top = anchorY - tooltipRect.height - gap;
+    top = clamp(top, visibleTop, Math.max(visibleTop, visibleBottom - tooltipRect.height));
+    tooltip.style.left = `${left - parentRect.left}px`;
+    tooltip.style.top = `${top - parentRect.top}px`;
+  }
+}
+
+function createChartTooltip(): HTMLElement {
+  const tooltip = document.createElement("div");
+  tooltip.className = "chart-tooltip";
+  tooltip.hidden = true;
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.innerHTML = `
+    <div class="chart-tooltip-header"></div>
+    <div class="chart-tooltip-body"></div>
+    <div class="chart-tooltip-footer"></div>
+  `;
+  tooltip.addEventListener("mouseleave", () => {
+    tooltip.hidden = true;
+  });
+  return tooltip;
+}
+
+function requiredTooltipPart(tooltip: HTMLElement, selector: string): HTMLElement {
+  const part = tooltip.querySelector<HTMLElement>(selector);
+  if (part === null) throw new Error(`Missing chart tooltip element: ${selector}`);
+  return part;
+}
+
+function tooltipLine(text: string): HTMLElement {
+  const line = document.createElement("div");
+  line.textContent = text;
+  return line;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 function initialBaselinePeriodPlugin(

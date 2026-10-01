@@ -658,6 +658,7 @@ dd {
 .active-alert-filter {
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 0.6rem;
+  row-gap: 0.3rem;
   align-items: center;
 }
 
@@ -667,6 +668,11 @@ dd {
 
 .active-alert-filter small {
   grid-column: 2;
+}
+
+.active-alert-filter input[type="checkbox"] {
+  min-height: 1.15rem;
+  padding: 0;
 }
 
 .chart-summary {
@@ -742,6 +748,56 @@ dd {
   min-height: 23rem;
   padding: 0.8rem;
   background: white;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2rem));
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  color: white;
+  background: rgb(20 12 31 / 92%);
+  box-shadow: 0 0.45rem 1rem rgb(20 12 31 / 25%);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  pointer-events: auto;
+}
+
+.chart-tooltip[hidden] {
+  display: none;
+}
+
+.chart-tooltip-header {
+  flex: 0 0 auto;
+  padding: 0.65rem 0.75rem 0.4rem;
+  font-weight: 700;
+}
+
+.chart-tooltip-body {
+  min-height: 0;
+  padding: 0.3rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chart-tooltip-item {
+  padding: 0.35rem 0;
+}
+
+.chart-tooltip-item + .chart-tooltip-item {
+  border-top: 1px solid rgb(255 255 255 / 18%);
+}
+
+.chart-tooltip-footer {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.75rem 0.65rem;
+  border-top: 1px solid rgb(255 255 255 / 18%);
+  font-weight: 700;
 }
 
 .expanded-chart-overlay {

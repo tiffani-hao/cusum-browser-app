@@ -163,9 +163,12 @@ describe("chart lifecycle", () => {
       intersect: false,
     });
     expect(configurations[0]?.options?.plugins?.tooltip).toMatchObject({
+      enabled: false,
       mode: "index",
       intersect: false,
+      position: "nearest",
     });
+    expect(configurations[0]?.options?.plugins?.tooltip?.external).toBeTypeOf("function");
     const filter = configurations[0]?.options?.plugins?.tooltip?.filter;
     expect(filter).toBeTypeOf("function");
     const count = data.datasets.find((dataset) => dataset.dataset_kind === "count")!;
