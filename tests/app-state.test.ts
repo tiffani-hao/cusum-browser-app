@@ -106,16 +106,19 @@ describe("in-memory application state", () => {
     expect(store.state.status).toBe("analysis-completed");
   });
 
-  it("preserves selected series while the active-alert-series display toggle changes", () => {
+  it("temporarily selects active-alert series and restores the prior selection", () => {
     const store = completedStore();
+    const selectedAreas = [...store.state.result_view.filters.selected_areas];
     const selectedSeries = [...store.state.result_view.filters.selected_series];
     store.setProcessedPage(2);
     store.setAlertPage(3);
     store.setSeriesWithActiveAlertsOnly(true);
-    expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
+    expect(store.state.result_view.filters.selected_areas).toEqual([]);
+    expect(store.state.result_view.filters.selected_series).toEqual([]);
     expect(store.state.result_view.processed_page).toBe(2);
     expect(store.state.result_view.alert_page).toBe(3);
     store.setSeriesWithActiveAlertsOnly(false);
+    expect(store.state.result_view.filters.selected_areas).toEqual(selectedAreas);
     expect(store.state.result_view.filters.selected_series).toEqual(selectedSeries);
     expect(store.state.result_view.processed_page).toBe(2);
     expect(store.state.result_view.alert_page).toBe(3);

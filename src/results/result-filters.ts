@@ -7,9 +7,39 @@ import {
   uniqueResultDates,
   uniqueRiskGroups,
 } from "./result-selectors";
-import type { ResultDisplayFilters, ResultViewState } from "./types";
+import type { ResultDisplayFilters, ResultViewState, SeriesOption } from "./types";
 
 export const MAX_DISPLAYED_CHART_SERIES = 20;
+
+export function activeAlertSeries(records: readonly ProcessedCusumRecord[]): SeriesOption[] {
+  return identifyAlertEpisodes(records)
+    .filter((episode) => episode.is_active)
+    .map((episode) => ({
+      key: seriesKey(episode),
+      label: episode.risk_group === undefined
+        ? episode.area
+        : `${episode.area} — ${episode.risk_group}`,
+      area: episode.area,
+      ...(episode.risk_group === undefined ? {} : { risk_group: episode.risk_group }),
+    }));
+}
+
+export function synchronizeActiveAlertSelections(
+  records: readonly ProcessedCusumRecord[],
+  filters: ResultDisplayFilters,
+): ResultDisplayFilters {
+  if (!filters.series_with_active_alerts_only) return filters;
+  const activeSeries = activeAlertSeries(records);
+  const stratified = records.some((record) => record.risk_group !== undefined);
+  return {
+    ...filters,
+    selected_areas: [...new Set(activeSeries.map((series) => series.area))],
+    selected_risk_groups: stratified
+      ? [...new Set(activeSeries.flatMap((series) => series.risk_group ?? []))]
+      : [],
+    selected_series: stratified ? activeSeries.map((series) => series.key) : [],
+  };
+}
 
 export function createDefaultDisplayFilters(records: ProcessedCusumRecord[]): ResultDisplayFilters {
   const series = independentSeries(records);
@@ -89,11 +119,7 @@ export function filterChartRecords(
   const stratified = records.some((record) => record.risk_group !== undefined);
   const selectedSeries = stratified ? new Set(filters.selected_series) : null;
   const seriesWithActiveAlerts = filters.series_with_active_alerts_only
-    ? new Set(
-      identifyAlertEpisodes(records)
-        .filter((episode) => episode.is_active)
-        .map((episode) => seriesKey(episode)),
-    )
+    ? new Set(activeAlertSeries(records).map((series) => series.key))
     : null;
   return filterProcessedRecords(records, filters).filter((record) => {
     const key = seriesKey(record);

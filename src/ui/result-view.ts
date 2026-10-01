@@ -494,8 +494,8 @@ function resultMarkup(): string {
           <small id="series-filter-help"></small>
           <small id="series-default-help"></small>
         </fieldset>
-        <div class="filter-control">
-          <label class="toggle-label compact"><input id="series-with-active-alerts-filter" type="checkbox" /> Show Only Series with Active Alerts</label>
+        <div class="filter-control active-alert-filter">
+          <label class="toggle-label compact"><input id="series-with-active-alerts-filter" type="checkbox" /><span>Show Only Series with Active Alerts</span></label>
           <small>Show the full history of selected series whose latest analyzed period is currently in an alert state.</small>
         </div>
         <div class="date-range-filter" role="group" aria-label="Display date range">

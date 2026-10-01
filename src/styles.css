@@ -655,6 +655,20 @@ dd {
   align-self: center;
 }
 
+.active-alert-filter {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.6rem;
+  align-items: center;
+}
+
+.active-alert-filter .toggle-label {
+  display: contents;
+}
+
+.active-alert-filter small {
+  grid-column: 2;
+}
+
 .chart-summary {
   padding: 0.65rem 0.75rem;
   border-left: 4px solid var(--purple-700);

@@ -10,8 +10,14 @@ import type {
 import {
   createCompletedResultViewState,
   createInitialResultViewState,
+  synchronizeActiveAlertSelections,
 } from "../results";
 import type { ResultDisplayFilters } from "../results";
+
+type SeriesSelectionSnapshot = Pick<
+  ResultDisplayFilters,
+  "selected_areas" | "selected_risk_groups" | "selected_series"
+>;
 
 export function initialAppState(): AnalysisWorkflowState {
   return {
@@ -31,12 +37,14 @@ export function initialAppState(): AnalysisWorkflowState {
 
 export class AppStateStore {
   private current: AnalysisWorkflowState = initialAppState();
+  private selectionBeforeActiveAlerts: SeriesSelectionSnapshot | null = null;
 
   get state(): Readonly<AnalysisWorkflowState> {
     return this.current;
   }
 
   startParsing(file: File): void {
+    this.selectionBeforeActiveAlerts = null;
     this.current = {
       ...initialAppState(),
       status: "parsing",
@@ -129,6 +137,7 @@ export class AppStateStore {
   }
 
   startAnalysis(): void {
+    this.selectionBeforeActiveAlerts = null;
     this.current = {
       ...this.current,
       status: "analysis-running",
@@ -139,6 +148,7 @@ export class AppStateStore {
   }
 
   finishAnalysis(result: AnalysisResult): void {
+    this.selectionBeforeActiveAlerts = null;
     this.current = {
       ...this.current,
       status: result.success ? "analysis-completed" : "analysis-failed",
@@ -151,6 +161,7 @@ export class AppStateStore {
   }
 
   clearData(): void {
+    this.selectionBeforeActiveAlerts = null;
     this.current = initialAppState();
   }
 
@@ -166,11 +177,14 @@ export class AppStateStore {
   }
 
   updateDisplayFilters(filters: ResultDisplayFilters): void {
+    const synchronizedFilters = this.current.analysis_result?.success === true
+      ? synchronizeActiveAlertSelections(this.current.analysis_result.records, filters)
+      : filters;
     this.current = {
       ...this.current,
       result_view: {
         ...this.current.result_view,
-        filters,
+        filters: synchronizedFilters,
         processed_page: 1,
         alert_page: 1,
         export_message: "",
@@ -180,14 +194,27 @@ export class AppStateStore {
   }
 
   setSeriesWithActiveAlertsOnly(enabled: boolean): void {
+    const filters = this.current.result_view.filters;
+    if (enabled === filters.series_with_active_alerts_only) return;
+    if (enabled) {
+      this.selectionBeforeActiveAlerts = {
+        selected_areas: [...filters.selected_areas],
+        selected_risk_groups: [...filters.selected_risk_groups],
+        selected_series: [...filters.selected_series],
+      };
+    }
+    const toggledFilters = { ...filters, series_with_active_alerts_only: enabled };
+    const nextFilters = enabled && this.current.analysis_result?.success === true
+      ? synchronizeActiveAlertSelections(this.current.analysis_result.records, toggledFilters)
+      : this.selectionBeforeActiveAlerts === null
+        ? toggledFilters
+        : { ...toggledFilters, ...this.selectionBeforeActiveAlerts };
+    if (!enabled) this.selectionBeforeActiveAlerts = null;
     this.current = {
       ...this.current,
       result_view: {
         ...this.current.result_view,
-        filters: {
-          ...this.current.result_view.filters,
-          series_with_active_alerts_only: enabled,
-        },
+        filters: nextFilters,
         export_message: "",
       },
       message: enabled
@@ -198,6 +225,7 @@ export class AppStateStore {
 
   resetDisplayFilters(): void {
     if (this.current.analysis_result?.success !== true) return;
+    this.selectionBeforeActiveAlerts = null;
     this.current = {
       ...this.current,
       result_view: createCompletedResultViewState(this.current.analysis_result.records),

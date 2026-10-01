@@ -526,7 +526,7 @@ describe("Results, alerts, and Help", () => {
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
     expect(controller.getState().result_view.filters.selected_series).toEqual(originalSelection);
-    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(originalAreas);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(["Area A"]);
     expect(root.querySelector("#chart-summary")?.textContent).toContain("1 displayed series");
     expect(root.querySelector("#chart-summary")?.textContent).toContain("from 2024-01-01 to 2024-02-01");
     toggle.checked = false;
@@ -535,6 +535,39 @@ describe("Results, alerts, and Help", () => {
     expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(originalAreas);
     expect(root.querySelector("#chart-summary")?.textContent).toContain("2 displayed series");
     expect(analyze).toHaveBeenCalledOnce();
+  });
+
+  it("selects only active Area–Strata series and restores stratified selections", async () => {
+    const records = [
+      { ...record(1, false, "Group 1"), area: "Area A", date: "2024-01-01" },
+      { ...record(2, true, "Group 1"), area: "Area A", date: "2024-02-01" },
+      { ...record(3, false, "Group 2"), area: "Area A", date: "2024-01-01" },
+      { ...record(4, false, "Group 2"), area: "Area A", date: "2024-02-01" },
+      { ...record(5, false, "Group 1"), area: "Area B", date: "2024-01-01" },
+      { ...record(6, true, "Group 1"), area: "Area B", date: "2024-02-01" },
+    ];
+    const { root, controller } = setup(completedResult(records), true);
+    await controller.selectFile(new File(["stratified"], "stratified.csv"));
+    controller.runAnalysis();
+    const originalSeries = checkedCheckboxLabels(root, "#series-filter");
+    const toggle = root.querySelector<HTMLInputElement>("#series-with-active-alerts-filter")!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([
+      "Area A — Group 1",
+      "Area B — Group 1",
+    ]);
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual(["Area A", "Area B"]);
+    expect(checkedCheckboxLabels(root, "#risk-filter")).toEqual(["Group 1"]);
+    expect(root.querySelector("#chart-summary")?.textContent).toContain("2 displayed series");
+    setCheckboxSelection(root, "#series-filter", ["Area A — Group 2"]);
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual([
+      "Area A — Group 1",
+      "Area B — Group 1",
+    ]);
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(checkedCheckboxLabels(root, "#series-filter")).toEqual(originalSeries);
   });
 
   it("shows an explanatory empty chart when no selected series has an active alert", async () => {
@@ -548,6 +581,7 @@ describe("Results, alerts, and Help", () => {
     const toggle = root.querySelector<HTMLInputElement>("#series-with-active-alerts-filter")!;
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(checkedCheckboxLabels(root, "#area-filter")).toEqual([]);
     const empty = root.querySelector<HTMLElement>("#chart-empty")!;
     expect(empty.hidden).toBe(false);
     expect(empty.textContent).toContain("No selected series within the current display filters has an active alert");
