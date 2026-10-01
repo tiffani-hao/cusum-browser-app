@@ -98,7 +98,8 @@ export function helpDialogMarkup(): string {
             </ul>
             <p>If a valid <code>strata</code> column is detected, stratified analysis is enabled automatically. Each Area–Strata combination is analyzed as a separate time series.</p>
             <p>The application validates the file before analysis. The original uploaded file is not modified.</p>
-            <p>The tool also supports Excel serial dates that may appear when dates are exported from Excel.</p>
+            <p>Dates may use common spreadsheet formats such as <code>2026-06-01</code>, <code>06/01/2026</code>, <code>Jun 1 2026</code>, or valid Excel serial dates. Dates are normalized internally before analysis.</p>
+            <p>For slash-formatted dates, the application uses the complete date column to distinguish month-first from day-first ordering. If every value is ambiguous, dates are interpreted as U.S. month/day/year and a non-blocking warning is shown. Conflicting month/day ordering is rejected.</p>
             <h4>Basic format</h4>
             <pre aria-label="Basic CSV format">area,date,count
 Area A,2024-01-01,5

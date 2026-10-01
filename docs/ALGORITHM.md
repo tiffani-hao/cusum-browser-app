@@ -9,12 +9,14 @@ The application analyzes surveillance counts over time and uses a standard one-s
 The application accepts UTF-8 CSV and XLSX files. Required columns are:
 
 - `area`: a nonempty reporting-area name
-- `date`: a valid ISO calendar date in `YYYY-MM-DD` form
+- `date`: a recognizable calendar date, including ISO, common spreadsheet date text, or an Excel serial date
 - `count`: a finite, nonnegative number
 
 The optional `strata` column can define separate CUSUM series within each area. Column names must match exactly. Empty or duplicate headers are rejected, while additional columns are retained during import but are not used by the analytical pipeline.
 
 Completely blank trailing rows are ignored. Partially populated rows remain in the imported table so validation can report their row numbers and affected fields without displaying complete records.
+
+Imported dates are parsed and normalized to `YYYY-MM-DD` before they enter the analytical pipeline. Numeric slash dates are interpreted using evidence from the complete date column. Unambiguous values establish month-first or day-first ordering; an entirely ambiguous column defaults to U.S. month/day/year with a warning, while conflicting evidence is rejected. Impossible calendar dates are never rolled into another month.
 
 ## Supported intervals
 

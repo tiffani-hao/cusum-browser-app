@@ -18,7 +18,7 @@ npm run build
 The suite covers:
 
 - Record and analysis-option validation
-- Strict ISO dates, UTC date arithmetic, and interval anchoring
+- Imported date normalization, month/day-order inference, strict calendar validation, UTC date arithmetic, and interval anchoring
 - Duplicate aggregation and missing-period completion
 - Rolling smoothing, baseline mean, and sample standard deviation
 - Normalization, CUSUM accumulation, series resets, and alerts
@@ -53,7 +53,7 @@ Strings, dates, booleans, counts, and grouping fields use exact comparisons. Flo
 
 ## Current verification
 
-The latest repository run contains 20 test files and 181 passing tests, with no failures or skipped tests. All 26 golden fixtures pass. Type checking and the static production build also pass.
+The latest repository run contains 25 test files and 290 passing tests, with no failures or skipped tests. All 26 golden fixtures pass. Type checking and the static production build also pass.
 
 ## Performance observations
 

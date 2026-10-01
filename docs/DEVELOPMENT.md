@@ -42,6 +42,8 @@ Papa Parse reads CSV text, including quoted commas and embedded newlines. A UTF-
 
 Both parsers preserve source headers, reject empty or duplicate names, ignore completely blank trailing rows, and retain partially populated rows for validation. Import then recognizes the required `area`, `date`, and `count` columns and the optional `strata` column. Numeric text is converted only for the known `count` field before records enter the analytical validator.
 
+CSV and XLSX dates share one strict normalization path. It accepts ISO dates, common month-name and numeric spreadsheet formats, date-time values whose time is irrelevant, and Excel 1900-system serial dates. Slash-formatted columns are inspected as a whole: unambiguous values determine month/day ordering, fully ambiguous columns default to U.S. month/day/year with a warning, and conflicting ordering evidence blocks analysis. Valid dates are converted to `YYYY-MM-DD` before interval standardization.
+
 Validation feedback distinguishes file, header, row, and option issues. Row-level messages expose only a row number, field name, and general reason. Analysis remains unavailable while blocking issues exist.
 
 ## Application state

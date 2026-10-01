@@ -5,7 +5,7 @@ import type {
   InputValidationSummary,
   ParsedRow,
 } from "./types";
-import { excelSerialDateToIso, numericDateSerial } from "./excel-serial-date";
+import { inspectDateColumn, normalizeImportedDate } from "./date-normalization";
 
 const REQUIRED_COLUMNS = ["area", "date", "count"] as const;
 
@@ -15,15 +15,6 @@ function normalizeCount(value: unknown): unknown {
   if (trimmed === "") return value;
   if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed)) return value;
   return Number(trimmed);
-}
-
-function normalizeImportedDate(value: unknown): { value: unknown; invalidSerial: boolean } {
-  const serial = numericDateSerial(value);
-  if (serial === undefined) return { value, invalidSerial: false };
-  const converted = excelSerialDateToIso(serial);
-  return converted === null
-    ? { value: "2000-01-01", invalidSerial: true }
-    : { value: converted, invalidSerial: false };
 }
 
 function isUsableStratum(value: unknown): boolean {
@@ -44,6 +35,7 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
     : rows.flatMap((row, index) => isUsableStratum(row[stratificationColumn]) ? [] : [index + 2]);
   const hasRiskGroup = stratificationColumn !== undefined && invalidStrataRows.length === 0;
   const warnings: FileParsingIssue[] = [];
+  const dateColumnFormat = inspectDateColumn(rows.map((row) => row.date));
   const issues: ValidationIssue[] = [
     ...missingRequiredColumns.map((column) => ({
       code: "missing_required_column",
@@ -55,6 +47,11 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
       message: "Provide only one stratification variable column.",
       field: "strata",
     }] : []),
+    ...(dateColumnFormat.conflict_rows.length === 0 ? [] : [{
+      code: "inconsistent_date_formats",
+      message: `The date column contains inconsistent date formats. Some values appear to use DD/MM/YYYY while others appear to use MM/DD/YYYY. Please use one consistent date format. (example rows ${dateColumnFormat.conflict_rows.join(" and ")})`,
+      field: "date",
+    }]),
   ];
   const validRecords: ValidatedInputRecord[] = [];
   let invalidRecordCount = 0;
@@ -69,15 +66,32 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
     });
   }
 
+  if (dateColumnFormat.ambiguous) {
+    warnings.push({
+      code: "ambiguous_numeric_dates",
+      message: "Some dates are ambiguous between MM/DD/YYYY and DD/MM/YYYY. They were interpreted as MM/DD/YYYY.",
+      scope: "row",
+      severity: "warning",
+      field: "date",
+    });
+  }
+
   if (missingRequiredColumns.length === 0) {
     rows.forEach((row, index) => {
       const rowNumber = index + 2;
-      const normalizedDate = normalizeImportedDate(row.date);
+      const normalizedDate = normalizeImportedDate(row.date, dateColumnFormat.order);
       const rowIssues: ValidationIssue[] = [];
-      if (normalizedDate.invalidSerial) {
+      if (!normalizedDate.valid && normalizedDate.code === "invalid_excel_serial_date") {
         rowIssues.push({
           code: "invalid_excel_serial_date",
-          message: `Date must be a valid Excel 1900-system serial date or an ISO date in YYYY-MM-DD format. (row ${rowNumber})`,
+          message: `Date contains an invalid Excel 1900-system serial date. (row ${rowNumber})`,
+          field: "date",
+          record_index: rowNumber,
+        });
+      } else if (!normalizedDate.valid) {
+        rowIssues.push({
+          code: "invalid_date",
+          message: `Date contains an invalid or unrecognized date value. Use a recognizable date format such as 2026-06-01 or 06/01/2026. (row ${rowNumber})`,
           field: "date",
           record_index: rowNumber,
         });
@@ -93,13 +107,13 @@ export function validateImportedTable(columns: string[], rows: ParsedRow[]): Inp
       }
       const candidate: RawTabularRecord = {
         area: row.area,
-        date: normalizedDate.value,
+        date: normalizedDate.valid ? normalizedDate.value : "2000-01-01",
         count: normalizeCount(row.count),
         ...(stratificationColumn === undefined ? {} : { risk_group: stratum }),
       };
       const result = validateRecords([candidate]);
       issues.push(...rowIssues);
-      if (result.valid && rowIssues.length === 0) {
+      if (result.valid && rowIssues.length === 0 && dateColumnFormat.conflict_rows.length === 0) {
         validRecords.push(result.value[0] as ValidatedInputRecord);
       } else {
         invalidRecordCount += 1;

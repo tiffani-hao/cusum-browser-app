@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { analyzeCusum, DEFAULT_ANALYSIS_OPTIONS } from "../src/core";
 import {
   parseCsvText,
   parseExcelArrayBuffer,
@@ -7,6 +8,122 @@ import {
 import { createXlsxBuffer } from "./helpers/xlsx";
 
 describe("imported date and stratification validation", () => {
+  it.each([
+    ["2026-06-01", "2026-06-01"],
+    ["06/01/2026", "2026-06-01"],
+    ["6/1/2026", "2026-06-01"],
+    ["06/01/26", "2026-06-01"],
+    ["Jun 1 2026", "2026-06-01"],
+    ["June 1, 2026", "2026-06-01"],
+    ["1-Jun-2026", "2026-06-01"],
+    ["1 Jun 2026", "2026-06-01"],
+    ["2026/06/01", "2026-06-01"],
+    ["2026-06-01 00:00:00", "2026-06-01"],
+    ["2026-06-01T23:59:59Z", "2026-06-01"],
+  ])("normalizes imported date %s to %s", (input, expected) => {
+    const validation = validateImportedTable(
+      ["area", "date", "count"],
+      [{ area: "Area A", date: input, count: 1 }],
+    );
+    expect(validation.valid).toBe(true);
+    expect(validation.valid_records[0]?.date).toBe(expected);
+  });
+
+  it.each(["02/30/2026", "2026-13-01", "31/31/2026", "abc", "not-a-date"])(
+    "rejects invalid or unrecognized date %s without calendar rollover",
+    (input) => {
+      const validation = validateImportedTable(
+        ["area", "date", "count"],
+        [{ area: "Area A", date: input, count: 1 }],
+      );
+      expect(validation.valid).toBe(false);
+      expect(validation.issues).toContainEqual(expect.objectContaining({
+        code: "invalid_date",
+        field: "date",
+        record_index: 2,
+      }));
+      expect(validation.issues.find((issue) => issue.code === "invalid_date")?.message)
+        .toContain("invalid or unrecognized date value");
+    },
+  );
+
+  it("infers month-first slash dates from unambiguous column evidence", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count"],
+      [
+        { area: "Area A", date: "01/05/2026", count: 1 },
+        { area: "Area A", date: "02/13/2026", count: 2 },
+        { area: "Area A", date: "03/14/2026", count: 3 },
+      ],
+    );
+    expect(validation.valid).toBe(true);
+    expect(validation.valid_records.map((record) => record.date)).toEqual([
+      "2026-01-05",
+      "2026-02-13",
+      "2026-03-14",
+    ]);
+    expect(validation.warnings).toEqual([]);
+  });
+
+  it("infers day-first slash dates from unambiguous column evidence", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count"],
+      [
+        { area: "Area A", date: "05/01/2026", count: 1 },
+        { area: "Area A", date: "13/02/2026", count: 2 },
+        { area: "Area A", date: "14/03/2026", count: 3 },
+      ],
+    );
+    expect(validation.valid).toBe(true);
+    expect(validation.valid_records.map((record) => record.date)).toEqual([
+      "2026-01-05",
+      "2026-02-13",
+      "2026-03-14",
+    ]);
+    expect(validation.warnings).toEqual([]);
+  });
+
+  it("defaults an entirely ambiguous slash-date column to month-first with a warning", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count"],
+      [
+        { area: "Area A", date: "01/02/2026", count: 1 },
+        { area: "Area A", date: "03/04/2026", count: 2 },
+        { area: "Area A", date: "05/06/2026", count: 3 },
+      ],
+    );
+    expect(validation.valid).toBe(true);
+    expect(validation.valid_records.map((record) => record.date)).toEqual([
+      "2026-01-02",
+      "2026-03-04",
+      "2026-05-06",
+    ]);
+    expect(validation.warnings).toContainEqual(expect.objectContaining({
+      code: "ambiguous_numeric_dates",
+      severity: "warning",
+      field: "date",
+      message: "Some dates are ambiguous between MM/DD/YYYY and DD/MM/YYYY. They were interpreted as MM/DD/YYYY.",
+    }));
+  });
+
+  it("rejects conflicting month-first and day-first column evidence", () => {
+    const validation = validateImportedTable(
+      ["area", "date", "count"],
+      [
+        { area: "Area A", date: "13/02/2026", count: 1 },
+        { area: "Area A", date: "02/13/2026", count: 2 },
+      ],
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.valid_records).toEqual([]);
+    expect(validation.invalid_record_count).toBe(2);
+    expect(validation.issues).toContainEqual(expect.objectContaining({
+      code: "inconsistent_date_formats",
+      field: "date",
+    }));
+    expect(validation.issues[0]?.message).toContain("Please use one consistent date format");
+  });
+
   it("converts Excel serial dates from CSV only in the date field", () => {
     const parsed = parseCsvText("area,date,count\nArea A,45292,45292");
     expect(parsed.success).toBe(true);
@@ -29,6 +146,42 @@ describe("imported date and stratification validation", () => {
     const validation = validateImportedTable(parsed.table.columns, parsed.table.rows);
     expect(validation.valid).toBe(true);
     expect(validation.valid_records[0]?.date).toBe("2024-01-01");
+  });
+
+  it("produces the same normalized input and analysis for Excel dates and Excel-exported CSV dates", async () => {
+    const xlsx = await parseExcelArrayBuffer(createXlsxBuffer([
+      {
+        name: "Data",
+        rows: [
+          ["area", "date", "count"],
+          ["Area A", 46_174, 2],
+          ["Area A", 46_204, 4],
+          ["Area A", 46_235, 3],
+        ],
+      },
+    ]));
+    const csv = parseCsvText([
+      "area,date,count",
+      "Area A,6/1/2026,2",
+      "Area A,7/1/2026,4",
+      "Area A,8/1/2026,3",
+    ].join("\n"));
+    expect(xlsx.success).toBe(true);
+    expect(csv.success).toBe(true);
+    if (!xlsx.success || !csv.success) return;
+
+    const xlsxValidation = validateImportedTable(xlsx.table.columns, xlsx.table.rows);
+    const csvValidation = validateImportedTable(csv.table.columns, csv.table.rows);
+    expect(xlsxValidation.valid).toBe(true);
+    expect(csvValidation.valid).toBe(true);
+    expect(csvValidation.valid_records.map((record) => record.date)).toEqual([
+      "2026-06-01",
+      "2026-07-01",
+      "2026-08-01",
+    ]);
+    expect(csvValidation.valid_records).toEqual(xlsxValidation.valid_records);
+    expect(analyzeCusum(csvValidation.valid_records, DEFAULT_ANALYSIS_OPTIONS))
+      .toEqual(analyzeCusum(xlsxValidation.valid_records, DEFAULT_ANALYSIS_OPTIONS));
   });
 
   it.each([0, 60, 45_292.5, 3_000_000])(

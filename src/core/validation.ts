@@ -68,7 +68,7 @@ export function validateRecords(value: unknown): ValidationResult<ValidatedInput
     if (area === undefined) issues.push(issue("missing_area", "Area is required.", "area", index));
     else if (typeof area !== "string" || area.trim() === "") issues.push(issue("empty_area", "Area must be a nonempty string.", "area", index));
     if (date === undefined) issues.push(issue("missing_date", "Date is required.", "date", index));
-    else if (typeof date !== "string" || parseIsoDate(date) === null) issues.push(issue("invalid_date", "Date must be a valid ISO calendar date.", "date", index));
+    else if (typeof date !== "string" || parseIsoDate(date) === null) issues.push(issue("invalid_date", "Date contains an invalid or unrecognized date value.", "date", index));
     if (count === undefined) issues.push(issue("missing_count", "Count is required.", "count", index));
     else if (typeof count !== "number") issues.push(issue("nonnumeric_count", "Count must be numeric.", "count", index));
     else if (!Number.isFinite(count)) issues.push(issue("nonfinite_count", "Count must be finite.", "count", index));

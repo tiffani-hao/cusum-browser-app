@@ -71,6 +71,26 @@ describe("Application workflow", () => {
     expect(root.querySelector<HTMLButtonElement>("#run-analysis")?.disabled).toBe(true);
   });
 
+  it("shows a non-blocking warning when an entirely ambiguous date column defaults to month-first", async () => {
+    const { root, controller } = setup(result(
+      ["area", "date", "count"],
+      [
+        { area: "A", date: "01/02/2026", count: "1" },
+        { area: "A", date: "03/04/2026", count: "2" },
+      ],
+    ));
+    await controller.selectFile(new File(["data"], "ambiguous-dates.csv"));
+    expect(controller.getState().validation?.valid).toBe(true);
+    expect(controller.getState().validation?.valid_records.map((record) => record.date)).toEqual([
+      "2026-01-02",
+      "2026-03-04",
+    ]);
+    expect(root.querySelector("#warning-summary")?.textContent).toContain(
+      "interpreted as MM/DD/YYYY",
+    );
+    expect(root.querySelector<HTMLButtonElement>("#run-analysis")?.disabled).toBe(false);
+  });
+
   it("enables stratification only when the optional column exists", async () => {
     const withoutRisk = setup();
     await withoutRisk.controller.selectFile(new File(["data"], "data.csv"));
