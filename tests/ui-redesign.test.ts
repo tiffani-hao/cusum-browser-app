@@ -682,6 +682,7 @@ describe("Results, alerts, and Help", () => {
 
   it("opens and closes Help accessibly, handles Escape, and returns focus", () => {
     const { root } = setup();
+    root.querySelector<HTMLButtonElement>("#get-started")!.click();
     const help = root.querySelector<HTMLButtonElement>("#help-button")!;
     const overlay = root.querySelector<HTMLElement>("#help-overlay")!;
     expect(overlay.hidden).toBe(true);

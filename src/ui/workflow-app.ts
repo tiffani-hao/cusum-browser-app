@@ -29,6 +29,7 @@ import type { CsvDownloader, VisualizationDownloader } from "./export-view";
 import { ResultView } from "./result-view";
 import { helpDialogMarkup, initializeHelpDialog } from "./help-view";
 import { initializeSampleDataDialog, sampleDataDialogMarkup } from "./sample-data-view";
+import { initializeWelcomeDialog, welcomeDialogMarkup } from "./welcome-view";
 
 const MAX_DISPLAYED_ISSUES = 20;
 
@@ -169,6 +170,7 @@ function staticMarkup(): string {
     </main>
     ${helpDialogMarkup()}
     ${sampleDataDialogMarkup()}
+    ${welcomeDialogMarkup()}
   `;
 }
 
@@ -179,6 +181,7 @@ export function createWorkflowApp(
   root.innerHTML = staticMarkup();
   initializeHelpDialog(root);
   initializeSampleDataDialog(root);
+  initializeWelcomeDialog(root);
   const store = new AppStateStore();
   const resultView = new ResultView(
     requiredElement(root, "#results-section"),

@@ -915,7 +915,8 @@ tbody tr:last-child td {
 }
 
 body.help-open,
-body.sample-data-open {
+body.sample-data-open,
+body.welcome-open {
   overflow: hidden;
 }
 
@@ -967,6 +968,127 @@ body.sample-data-open {
   width: min(92vw, 34rem);
   height: auto;
   max-height: min(80vh, 42rem);
+}
+
+.welcome-overlay {
+  z-index: 1100;
+  background: rgb(20 12 31 / 56%);
+}
+
+.welcome-dialog {
+  width: min(92vw, 71.875rem);
+  height: auto;
+  max-height: calc(100vh - 2rem);
+}
+
+.welcome-dialog-header {
+  position: relative;
+  justify-content: center;
+}
+
+.welcome-dialog-header h2 {
+  width: 100%;
+  margin: 0;
+  padding: 0 2.5rem;
+  font-size: clamp(1.2rem, 3vw, 1.5rem);
+  text-align: center;
+}
+
+.welcome-dialog-header .sample-dialog-close {
+  position: absolute;
+  right: 1.25rem;
+}
+
+.welcome-dialog-body {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto auto auto auto;
+  overflow: hidden;
+  padding: 1rem 1.25rem 1.1rem;
+}
+
+.welcome-intro {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.welcome-secondary {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.welcome-contact,
+.welcome-special-thanks {
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.welcome-contact p {
+  margin: 0.2rem 0;
+}
+
+.welcome-contact a {
+  color: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.welcome-special-thanks {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto auto auto;
+}
+
+.welcome-special-thanks h3 {
+  margin: 0 0 0.35rem;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+}
+
+.welcome-special-thanks p {
+  margin: 0 0 0.45rem;
+}
+
+.welcome-thanks-list {
+  min-height: 0;
+  max-height: 10rem;
+  overflow-y: auto;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--purple-50);
+  scrollbar-color: var(--purple-200) transparent;
+  scrollbar-width: thin;
+}
+
+.welcome-thanks-list:focus-visible {
+  outline: 3px solid #f3a712;
+  outline-offset: 2px;
+}
+
+.welcome-thanks-list ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.welcome-thanks-list li + li {
+  margin-top: 0.3rem;
+}
+
+.welcome-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.welcome-actions .button {
+  min-width: 8.5rem;
 }
 
 .sample-data-dialog-body {
@@ -1277,6 +1399,55 @@ body.sample-data-open {
     border-radius: 0.65rem;
   }
 
+  .welcome-overlay {
+    align-items: center;
+    padding: 0.75rem;
+  }
+
+  .welcome-dialog {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 1.5rem);
+    border: 1px solid var(--purple-200);
+    border-radius: 0.65rem;
+  }
+
+  .welcome-dialog-body {
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  .welcome-dialog-header h2 {
+    padding: 0 2.25rem;
+  }
+
+  .welcome-dialog-header .sample-dialog-close {
+    right: 1rem;
+  }
+
+  .welcome-intro {
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .welcome-secondary {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .welcome-contact,
+  .welcome-special-thanks {
+    margin-top: 0.75rem;
+    padding-top: 0.7rem;
+  }
+
+  .welcome-actions {
+    margin-top: 1.25rem;
+  }
+
+  .welcome-thanks-list {
+    max-height: 9rem;
+  }
+
   .help-dialog-header {
     padding: 0.85rem 1rem;
   }
@@ -1289,5 +1460,16 @@ body.sample-data-open {
   td {
     padding: 0.45rem;
     font-size: 0.84rem;
+  }
+}
+
+@media (max-height: 34rem) {
+  .welcome-dialog-body {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .welcome-thanks-list {
+    max-height: 6.5rem;
   }
 }
